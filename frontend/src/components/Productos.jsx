@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../lib/api";
+import { money } from "../lib/format";
 
 export default function Productos() {
   const [productos, setProductos] = useState([]);
@@ -9,6 +10,8 @@ export default function Productos() {
   const [showForm, setShowForm] = useState(false);
   const [editando, setEditando] = useState(null);
   const [form, setForm] = useState({ codigo: "", nombre: "", descripcion: "", categoria_id: "", artesano_id: "", precio: "", costo: "", moneda: "CRC", stock: "", stock_minimo: "" });
+  const [sortCampo, setSortCampo] = useState("codigo");
+  const [sortDir, setSortDir] = useState("asc");
 
   useEffect(() => {
     cargar();
@@ -51,6 +54,16 @@ export default function Productos() {
   }
 
   const filtrados = productos.filter((p) => !search || p.nombre.toLowerCase().includes(search.toLowerCase()) || p.codigo.toLowerCase().includes(search.toLowerCase()));
+  const ordenados = [...filtrados].sort((a, b) => {
+    const va = (a[sortCampo] || "").toString().toLowerCase();
+    const vb = (b[sortCampo] || "").toString().toLowerCase();
+    return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+  });
+
+  function toggleSort(campo) {
+    if (sortCampo === campo) setSortDir(sortDir === "asc" ? "desc" : "asc");
+    else { setSortCampo(campo); setSortDir("asc"); }
+  }
 
   return (
     <div>
@@ -98,8 +111,12 @@ export default function Productos() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-left">
             <tr>
-              <th className="p-3">Código</th>
-              <th className="p-3">Nombre</th>
+              <th className="p-3 cursor-pointer hover:text-blue-600 select-none" onClick={() => toggleSort("codigo")}>
+                Código {sortCampo === "codigo" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+              </th>
+              <th className="p-3 cursor-pointer hover:text-blue-600 select-none" onClick={() => toggleSort("nombre")}>
+                Nombre {sortCampo === "nombre" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+              </th>
               <th className="p-3">Categoría</th>
               <th className="p-3">Artesano</th>
               <th className="p-3">Precio</th>
@@ -109,14 +126,14 @@ export default function Productos() {
             </tr>
           </thead>
           <tbody>
-            {filtrados.map((p) => (
+            {ordenados.map((p) => (
               <tr key={p.id} className="border-t hover:bg-gray-50">
                 <td className="p-3 font-mono">{p.codigo}</td>
                 <td className="p-3">{p.nombre}</td>
                 <td className="p-3">{p.categoria?.nombre || "-"}</td>
                 <td className="p-3">{p.artesano?.nombre || "-"}</td>
-                <td className="p-3 font-medium">₡{p.precio.toFixed(2)}</td>
-                <td className="p-3 text-gray-500">₡{p.costo.toFixed(2)}</td>
+                <td className="p-3 font-medium">₡{money(p.precio)}</td>
+                <td className="p-3 text-gray-500">₡{money(p.costo)}</td>
                 <td className={`p-3 font-medium ${p.stock <= p.stock_minimo ? "text-red-600" : ""}`}>{p.stock}</td>
                 <td className="p-3">
                   <button onClick={() => editar(p)} className="text-blue-600 hover:underline mr-3">Editar</button>

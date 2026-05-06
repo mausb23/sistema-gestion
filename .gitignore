@@ -10,6 +10,12 @@ build/
 *.sqlite
 *.sqlite3
 
+# Data files (sensitive info)
+migracion.xlsx
+*.ods
+*.xlsx
+backend/debug_*
+
 # Node
 node_modules/
 frontend/dist/

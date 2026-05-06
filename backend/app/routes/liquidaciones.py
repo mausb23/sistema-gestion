@@ -47,8 +47,9 @@ def resumen(periodo: Optional[str] = None, db: Session = Depends(get_db)):
         if not artesano_id:
             continue
         if artesano_id not in ventas_por_artesano:
-            ventas_por_artesano[artesano_id] = 0
-        ventas_por_artesano[artesano_id] += item.cantidad * item.producto.costo
+            ventas_por_artesano[artesano_id] = {"vendido": 0, "costo": 0}
+        ventas_por_artesano[artesano_id]["vendido"] += item.subtotal
+        ventas_por_artesano[artesano_id]["costo"] += item.cantidad * item.producto.costo
 
     pagos = (
         db.query(
@@ -64,21 +65,32 @@ def resumen(periodo: Optional[str] = None, db: Session = Depends(get_db)):
     artesanos = db.query(Artesano).filter(Artesano.activo == True).all()
     resultado = []
     for a in artesanos:
-        vendido = ventas_por_artesano.get(a.id, 0)
+        v = ventas_por_artesano.get(a.id, {"vendido": 0, "costo": 0})
+        vendido = round(v["vendido"], 2)
+        costo = round(v["costo"], 2)
+        deduccion_venta = round(vendido * 0.01, 2)
+        deduccion_renta = round(vendido * 0.02, 2)
+        deduccion_tienda = round(vendido * 0.02, 2)
+        neto = round(vendido - deduccion_venta - deduccion_renta - deduccion_tienda, 2)
         pagado = pagos_dict.get(a.id, 0)
         if vendido > 0 or pagado > 0:
             resultado.append({
                 "artesano_id": a.id,
                 "artesano": a.nombre,
-                "monto_vendido": round(vendido, 2),
+                "monto_vendido": vendido,
+                "deduccion_venta": deduccion_venta,
+                "deduccion_renta": deduccion_renta,
+                "deduccion_tienda": deduccion_tienda,
+                "neto": neto,
                 "monto_pagado": round(pagado, 2),
-                "pendiente": round(vendido - pagado, 2),
+                "pendiente": round(neto - pagado, 2),
             })
 
     return {
         "periodo": periodo,
         "liquidaciones": resultado,
         "total_vendido": round(sum(r["monto_vendido"] for r in resultado), 2),
+        "total_neto": round(sum(r["neto"] for r in resultado), 2),
         "total_pagado": round(sum(r["monto_pagado"] for r in resultado), 2),
         "total_pendiente": round(sum(r["pendiente"] for r in resultado), 2),
     }

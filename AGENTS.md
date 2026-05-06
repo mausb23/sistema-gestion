@@ -8,17 +8,37 @@
 
 - **Backend**: Python 3.14, FastAPI 0.115, SQLAlchemy 2.35, SQLite
 - **Frontend**: Astro 5, React 18, Tailwind CSS 3.4
+- **Scraping**: requests + BeautifulSoup (tipo de cambio BCCR)
 - **Packaging**: PyInstaller (single-file .exe)
 
 ## Code Conventions
 
 - **Language**: All code, comments, UI labels, and commit messages in **Spanish**
-- **Currency**: CRC (Costa Rican Colón) by default
+- **Currency**: CRC (Costa Rican Colón) — formatted as `1.234,56` (`.` miles, `,` decimales)
 - **File extensions**: Backend is `.py`, frontend is `.jsx` (plain JS, no TypeScript)
 - **Database**: SQLAlchemy models with `lazy="joined"` on all relationships
 - **API**: REST endpoints under `/api/`, inline Pydantic schemas in route files
 - **Frontend routing**: Simple `section` state in `App.jsx` (no React Router)
+- **Formatting**: `frontend/src/lib/format.js` — `money()` function for currency display
 - **API client**: `frontend/src/lib/api.js` — thin `fetch()` wrapper
+
+## Modelos
+
+### Comunidad
+- `codigo` (String, "01"–"39"), `nombre`, `territorio`, `cultura`
+- 39 comunidades indígenas costarricenses pre-cargadas al iniciar
+
+### Artesano
+- `codigo` (String, formato "01-001"), `nombre`, `comunidad_id`
+- Código se compone de: `codigo_comunidad-numero_artesano`
+
+### Producto
+- `codigo` (String, formato "01-001-001" = comunidad-artesano-producto)
+- `artesano_id` → Artesano, `categoria_id` → Categoria
+
+### CierreCaja
+- Doble moneda: `monto_inicial_crc/usd`, `conteo_crc/usd`, `diferencia_crc/usd`
+- `datafono` — monto del datáfono al cierre
 
 ## Database Conventions
 
@@ -42,6 +62,13 @@ cd frontend && npm install && npm run dev
 ```bash
 scripts\build.bat   # Windows
 scripts\build.sh    # Unix
+```
+
+### Migración de datos desde Excel
+```bash
+cd backend
+python ../scripts/migrar_inventario.py   # Productos y artesanos
+python ../scripts/migrar_caja_chica.py   # Ventas
 ```
 
 ## Response Format

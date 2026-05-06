@@ -8,6 +8,7 @@ const links = [
   { label: "Artesanos", icon: "👷", section: "artesanos" },
   { label: "Liquidaciones", icon: "💰", section: "liquidaciones" },
   { label: "Caja", icon: "🏦", section: "caja" },
+  { label: "Reporte Inventario", icon: "📑", section: "reporte-inventario" },
   { label: "Configuración", icon: "⚙️", section: "config" },
 ];
 

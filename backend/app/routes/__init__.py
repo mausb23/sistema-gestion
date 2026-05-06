@@ -9,3 +9,4 @@ from . import reportes
 from . import config
 from . import artesanos
 from . import liquidaciones
+from . import comunidades

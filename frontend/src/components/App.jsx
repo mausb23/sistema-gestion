@@ -10,6 +10,7 @@ import Caja from "./Caja";
 import Configuracion from "./Configuracion";
 import Artesanos from "./Artesanos";
 import Liquidaciones from "./Liquidaciones";
+import ReporteInventario from "./ReporteInventario";
 
 const sections = {
   dashboard: Dashboard,
@@ -20,6 +21,7 @@ const sections = {
   config: Configuracion,
   artesanos: Artesanos,
   liquidaciones: Liquidaciones,
+  "reporte-inventario": ReporteInventario,
 };
 
 export default function App() {

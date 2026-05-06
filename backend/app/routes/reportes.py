@@ -5,6 +5,7 @@ from sqlalchemy import func
 from app.database import get_db
 from app.models.venta import Venta, VentaItem
 from app.models.producto import Producto
+from app.models.artesano import Artesano
 
 router = APIRouter(prefix="/api/reportes", tags=["reportes"])
 
@@ -64,3 +65,44 @@ def resumen(db: Session = Depends(get_db)):
         "total_productos": total_productos or 0,
         "stock_bajo": stock_bajo or 0,
     }
+
+
+@router.get("/inventario-artesanos")
+def inventario_artesanos(artesano_id: int = None, db: Session = Depends(get_db)):
+    q = db.query(Artesano).filter(Artesano.activo == True)
+    if artesano_id:
+        q = q.filter(Artesano.id == artesano_id)
+    artesanos = q.order_by(Artesano.nombre).all()
+
+    resultado = []
+    for a in artesanos:
+        productos = db.query(Producto).filter(
+            Producto.artesano_id == a.id,
+            Producto.activo == 1,
+        ).order_by(Producto.codigo).all()
+
+        en_stock = sum(1 for p in productos if p.stock > 0)
+        sin_stock = sum(1 for p in productos if p.stock <= 0)
+
+        resultado.append({
+            "id": a.id,
+            "codigo": a.codigo or "",
+            "nombre": a.nombre,
+            "comunidad": a.comunidad.nombre if a.comunidad else "",
+            "cultura": a.comunidad.cultura if a.comunidad else "",
+            "total_productos": len(productos),
+            "en_stock": en_stock,
+            "sin_stock": sin_stock,
+            "productos": [
+                {
+                    "codigo": p.codigo,
+                    "nombre": p.nombre,
+                    "stock": p.stock,
+                    "precio": p.precio,
+                    "costo": p.costo,
+                }
+                for p in productos
+            ],
+        })
+
+    return resultado

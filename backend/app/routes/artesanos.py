@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from typing import Optional
 from app.database import get_db
 from app.models.artesano import Artesano
 
@@ -8,9 +9,11 @@ router = APIRouter(prefix="/api/artesanos", tags=["artesanos"])
 
 
 class ArtesanoCreate(BaseModel):
+    codigo: str = ""
     nombre: str
     telefono: str = ""
     email: str = ""
+    comunidad_id: Optional[int] = None
 
 
 @router.get("")

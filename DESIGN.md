@@ -18,6 +18,10 @@ Aplicación web monolítica con frontend SPA y backend REST API, empaquetada com
 │  │  ┌─────────────┐            │          │  │
 │  │  │   SQLite    │            │          │  │
 │  │  └─────────────┘            │          │  │
+│  │  ┌───────────────────┐      │          │  │
+│  │  │  Scraper BCCR     │──────┘          │  │
+│  │  │  (c/2 h)          │                 │  │
+│  │  └───────────────────┘                 │  │
 │  └───────────────────────────────────────┘  │
 └─────────────────────────────────────────────┘
 ```
@@ -40,13 +44,15 @@ Aplicación web monolítica con frontend SPA y backend REST API, empaquetada com
 - **Por qué**: Simplifica el código al evitar carga perezosa y problemas N+1.
 - **Trade-off**: Puede generar JOINs innecesarios en consultas que no necesitan ciertas relaciones.
 
-### Sin capa de servicios
-- **Por qué**: Proyecto pequeño donde la lógica de negocio es simple. Las rutas contienen tanto validación como lógica.
-- **Nota**: Los directorios `services/` y `schemas/` existen vacíos, sugiriendo una futura refactorización.
+### Scraping del tipo de cambio
+- **Por qué**: El BCCR no ofrece API pública. La tasa de compra/venta del BNCR se obtiene scraping la página de indicadores económicos.
+- **Frecuencia**: Cada 2 horas en un hilo daemon. También se scrapea al iniciar el servidor.
+- **Fuente**: `https://gee.bccr.fi.cr/IndicadoresEconomicos/Cuadros/frmConsultaTCVentanilla.aspx`
 
 ## Modelo de Datos
 
 ```
+comunidades ──< artesanos
 usuarios ──< ventas
 usuarios ──< movimientos_inventario
 usuarios ──< cierres_caja
@@ -61,6 +67,45 @@ ventas ──< venta_items
 configuracion (tabla clave-valor independiente)
 ```
 
+### Convención de Códigos
+
+Los códigos de producto siguen el formato `CC-AAA-PPP`:
+- `CC` = código de comunidad (01–39)
+- `AAA` = número de artesano dentro de la comunidad
+- `PPP` = número de producto del artesano
+
+Ejemplo: `01-001-001` = Comunidad 01 (Térraba), Artesano 001, Producto 001.
+
+### Caja (doble moneda)
+
+El módulo de caja maneja dos monedas simultáneamente:
+
+| Apertura | Durante el día | Cierre |
+|----------|---------------|--------|
+| Conteo físico CRC | Ventas CRC | Conteo físico CRC |
+| Conteo físico USD | Ventas USD | Conteo físico USD |
+| | Ingresos/Egresos | Datáfono |
+| | | Diferencia CRC |
+| | | Diferencia USD |
+
+El "Esperado" se calcula como: `inicial + ventas + ingresos - egresos`.
+
+### Liquidaciones (deducciones)
+
+El neto a pagar al artesano se calcula:
+
+```
+neto = vendido - (vendido × 1%) - (vendido × 2%) - (vendido × 2%)
+     = vendido × 0.95
+```
+
+| Concepto | Porcentaje |
+|----------|-----------|
+| Venta | 1% |
+| Impuesto de renta | 2% |
+| Tienda (CHM) | 2% |
+| Neto al artesano | 95% |
+
 ### Estrategia de Borrado
 
 | Entidad | Tipo | Campo |
@@ -68,6 +113,7 @@ configuracion (tabla clave-valor independiente)
 | usuario | Soft delete | `activo` (Boolean) |
 | producto | Soft delete | `activo` (Integer 0/1) |
 | artesano | Soft delete | `activo` (Boolean) |
+| comunidad | Hard delete | — |
 | categoria | Hard delete | — |
 | cliente | Hard delete | — |
 | pago_artesano | Hard delete | — |
@@ -75,7 +121,7 @@ configuracion (tabla clave-valor independiente)
 
 ## API
 
-11 módulos de rutas bajo `/api/`:
+12 módulos de rutas bajo `/api/`:
 
 | Módulo | Endpoints | Propósito |
 |--------|-----------|-----------|
@@ -83,11 +129,12 @@ configuracion (tabla clave-valor independiente)
 | categorias | CRUD | Categorías de productos |
 | productos | CRUD + filtros | Catálogo de productos |
 | clientes | CRUD + búsqueda | Clientes |
-| ventas | CRUD + hoy + anular | Punto de venta e historial |
+| ventas | CRUD + hoy + anular + exportar-excel | Punto de venta e historial |
 | inventario | movimientos + stock-bajo | Control de inventario |
-| caja | estado, abrir, cerrar, movimiento | Gestión de caja |
-| reportes | ventas-por-día, más-vendidos, resumen | Reportes y dashboard |
-| config | GET, PUT (clave→valor) | Configuración de la aplicación |
+| caja | estado, abrir, cerrar, movimiento | Gestión de caja (doble moneda) |
+| reportes | ventas-por-día, más-vendidos, resumen, inventario-artesanos | Reportes y dashboard |
+| config | GET, PUT (clave→valor), actualizar-tc | Configuración de la aplicación |
+| comunidades | GET listar | Comunidades indígenas |
 | artesanos | CRUD | Artesanos proveedores |
 | liquidaciones | resumen, pagos, historial | Liquidaciones a artesanos |
 
@@ -102,14 +149,20 @@ App.jsx
 ├── UserSelector.jsx       (selección/creación de usuario)
 ├── Sidebar.jsx            (navegación lateral)
 ├── Dashboard.jsx          (KPIs y resumen)
-├── Productos.jsx          (CRUD productos)
-├── Ventas.jsx             (POS + historial)
-├── Inventario.jsx         (movimientos + stock)
-├── Caja.jsx               (apertura/cierre/movimientos)
+├── Productos.jsx          (CRUD productos, sort por código/nombre)
+├── Ventas.jsx             (POS con escáner + historial + Excel)
+├── Inventario.jsx         (movimientos + stock, sort por código/nombre)
+├── Caja.jsx               (conteo por denominaciones CRC/USD)
 ├── Configuracion.jsx      (config, usuarios, categorías)
-├── Artesanos.jsx          (CRUD artesanos)
-└── Liquidaciones.jsx      (liquidaciones y pagos)
+├── Artesanos.jsx          (CRUD artesanos, sort por código/nombre)
+├── Liquidaciones.jsx      (liquidaciones con deducciones)
+└── ReporteInventario.jsx  (inventario por artesano)
 ```
+
+### Formato de moneda
+`frontend/src/lib/format.js` — función `money(n)`:
+- Separa miles con `.` y decimales con `,`
+- Ejemplo: `money(12345.50)` → `"12.345,50"`
 
 ### Flujo de Datos
 1. `UserSelector` obtiene usuarios de `GET /api/usuarios` al montar

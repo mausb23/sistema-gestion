@@ -7,6 +7,8 @@ export default function Inventario() {
   const [movimientos, setMovimientos] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ producto_id: "", tipo: "entrada", cantidad: "", motivo: "" });
+  const [sortCampo, setSortCampo] = useState("codigo");
+  const [sortDir, setSortDir] = useState("asc");
   const usuario = store.getUsuario();
 
   useEffect(() => {
@@ -28,6 +30,17 @@ export default function Inventario() {
     api.get("/productos").then(setProductos);
     api.get("/inventario/movimientos").then(setMovimientos);
   }
+
+  function toggleSort(campo) {
+    if (sortCampo === campo) setSortDir(sortDir === "asc" ? "desc" : "asc");
+    else { setSortCampo(campo); setSortDir("asc"); }
+  }
+
+  const ordenados = [...productos].sort((a, b) => {
+    const va = ((sortCampo === "codigo" ? a.codigo : a.nombre) || "").toString().toLowerCase();
+    const vb = ((sortCampo === "codigo" ? b.codigo : b.nombre) || "").toString().toLowerCase();
+    return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+  });
 
   return (
     <div>
@@ -58,9 +71,15 @@ export default function Inventario() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl shadow p-4">
-          <h3 className="font-semibold mb-3">Stock actual</h3>
+          <h3 className="font-semibold mb-3">
+            Stock actual
+            <span className="text-xs font-normal text-gray-400 ml-2">
+              <button onClick={() => toggleSort("codigo")} className={`ml-1 hover:text-blue-600 ${sortCampo === "codigo" ? "text-blue-600" : ""}`}>Código {sortCampo === "codigo" ? (sortDir === "asc" ? "▲" : "▼") : "▲"}</button>
+              <button onClick={() => toggleSort("nombre")} className={`ml-2 hover:text-blue-600 ${sortCampo === "nombre" ? "text-blue-600" : ""}`}>Nombre {sortCampo === "nombre" ? (sortDir === "asc" ? "▲" : "▼") : "▲"}</button>
+            </span>
+          </h3>
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {productos.map((p) => (
+            {ordenados.map((p) => (
               <div key={p.id} className="flex justify-between items-center border-b pb-2">
                 <div>
                   <p className="font-medium">{p.nombre}</p>
