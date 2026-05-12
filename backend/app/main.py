@@ -1,8 +1,8 @@
 import sys
 import os
-import webbrowser
 import threading
 import time
+import urllib.request
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -156,14 +156,30 @@ def health():
     return {"status": "ok"}
 
 
-def open_browser():
-    webbrowser.open(f"http://localhost:{PORT}")
+def esperar_servidor():
+    for _ in range(30):
+        try:
+            r = urllib.request.urlopen(f"http://localhost:{PORT}/api/health")
+            if r.status == 200:
+                return
+        except Exception:
+            pass
+        time.sleep(0.5)
 
 
 def main():
     import uvicorn
-    threading.Timer(1.5, open_browser).start()
-    uvicorn.run(app, host=HOST, port=PORT, log_level="info")
+    hilo = threading.Thread(target=uvicorn.run, args=(app,), kwargs={"host": HOST, "port": PORT, "log_level": "info"}, daemon=True)
+    hilo.start()
+    esperar_servidor()
+    try:
+        import webview
+        webview.create_window("Gestión de Ventas", f"http://localhost:{PORT}", width=1200, height=800, resizable=True)
+        webview.start()
+    except ImportError:
+        import webbrowser
+        webbrowser.open(f"http://localhost:{PORT}")
+        hilo.join()
 
 
 if __name__ == "__main__":

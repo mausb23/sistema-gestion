@@ -10,6 +10,10 @@ build/
 *.sqlite
 *.sqlite3
 
+# Build artifacts
+Versiones/*.AppImage
+Versiones/*.zip
+
 # Data files (sensitive info)
 migracion.xlsx
 *.ods

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Gestión de Ventas
+Comment=Sistema de gestión de ventas para pequeños negocios artesanales
+Exec=__RUTA__/v0.12.05.2026-1
+Icon=__RUTA__/icon.svg
+Terminal=false
+Type=Application
+Categories=Office;Finance;
+StartupNotify=true
