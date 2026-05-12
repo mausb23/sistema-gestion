@@ -13,6 +13,7 @@ build/
 # Build artifacts
 Versiones/*.AppImage
 Versiones/*.zip
+squashfs-root/
 
 # Data files (sensitive info)
 migracion.xlsx

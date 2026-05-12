@@ -1,23 +1,22 @@
-Gestión de Ventas v0.12.05.2026-1 (Ubuntu - AppImage)
-=====================================================
+Gestión de Ventas v0.12.05.2026-1 (Ubuntu)
+============================================
 
-El archivo AppImage contiene toda la app lista para ejecutar.
+Archivos:
+  v0.12.05.2026-1.run   → Ejecutable auto-extraíble (no necesita FUSE)
+  icon.svg              → Ícono de la app
+  gestion-ventas.desktop → Acceso directo para el menú
 
-Para usar:
+Para ejecutar:
 
-    chmod +x v0.12.05.2026-1.AppImage
-    ./v0.12.05.2026-1.AppImage
+    chmod +x v0.12.05.2026-1.run
+    ./v0.12.05.2026-1.run
 
-Se abre una ventana nativa con la app completa (FastAPI + React).
-
-NOTA: Si no se abre la ventana (por falta de WebKit), se abrirá el
-navegador automáticamente en http://localhost:8000
-
-OPCIONAL — Para ventana nativa, instalá:
+Se abre una ventana nativa con la app completa.
+Si no se abre la ventana (falta WebKit), instalá:
 
     sudo apt install python3-gi gir1.2-webkit2-4.1
 
-OPCIONAL — Instalar en el menú de aplicaciones:
+Para que aparezca en el menú de aplicaciones:
 
     RUTA=$(pwd)
     sed "s|__RUTA__|$RUTA|g" gestion-ventas.desktop > ~/.local/share/applications/gestion-ventas.desktop
