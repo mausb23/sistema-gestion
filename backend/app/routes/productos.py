@@ -26,6 +26,8 @@ def listar(
     busqueda: str = "",
     categoria_id: Optional[int] = None,
     solo_activos: bool = True,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
 ):
     q = db.query(Producto)
@@ -38,7 +40,9 @@ def listar(
             Producto.nombre.ilike(f"%{busqueda}%")
             | Producto.codigo.ilike(f"%{busqueda}%")
         )
-    return q.order_by(Producto.nombre).all()
+    total = q.count()
+    items = q.order_by(Producto.nombre).offset((page - 1) * per_page).limit(per_page).all()
+    return {"items": items, "total": total, "page": page, "per_page": per_page}
 
 
 @router.get("/{producto_id}")

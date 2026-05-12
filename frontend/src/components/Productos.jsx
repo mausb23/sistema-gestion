@@ -1,31 +1,57 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { api } from "../lib/api";
 import { money } from "../lib/format";
 
 export default function Productos() {
   const [productos, setProductos] = useState([]);
+  const [total, setTotal] = useState(0);
   const [categorias, setCategorias] = useState([]);
   const [artesanos, setArtesanos] = useState([]);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editando, setEditando] = useState(null);
   const [form, setForm] = useState({ codigo: "", nombre: "", descripcion: "", categoria_id: "", artesano_id: "", precio: "", costo: "", moneda: "CRC", stock: "", stock_minimo: "" });
-  const [sortCampo, setSortCampo] = useState("codigo");
-  const [sortDir, setSortDir] = useState("asc");
+  const debounceRef = useRef(null);
+  const perPage = 50;
 
-  useEffect(() => {
-    cargar();
-  }, []);
-
-  async function cargar() {
-    setProductos(await api.get("/productos"));
-    setCategorias(await api.get("/categorias"));
-    setArtesanos(await api.get("/artesanos"));
+  function calcularPrecio(costo) {
+    const c = parseFloat(costo);
+    if (isNaN(c) || c <= 0) return "";
+    if (c <= 10000) return (c * 1.7).toFixed(2);
+    if (c <= 20000) return (c * 1.6).toFixed(2);
+    if (c <= 35000) return (c + 12500).toFixed(2);
+    if (c <= 55000) return (c + 17500).toFixed(2);
+    return (c + 22500).toFixed(2);
   }
 
-  function resetForm() {
-    setForm({ codigo: "", nombre: "", descripcion: "", categoria_id: "", artesano_id: "", precio: "", costo: "", moneda: "CRC", stock: "", stock_minimo: "" });
-    setEditando(null);
+  useEffect(() => {
+    setCategorias(api.get("/categorias"));
+    setArtesanos(api.get("/artesanos"));
+  }, []);
+
+  useEffect(() => {
+    cargar(1);
+  }, [search]);
+
+  useEffect(() => {
+    cargar(page);
+  }, [page]);
+
+  async function cargar(p) {
+    const params = `?page=${p}&per_page=${perPage}${search ? `&busqueda=${encodeURIComponent(search)}` : ""}`;
+    const res = await api.get(`/productos${params}`);
+    setProductos(res.items || []);
+    setTotal(res.total || 0);
+  }
+
+  function handleSearch(e) {
+    const val = e.target.value;
+    setSearch(val);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setPage(1);
+    }, 300);
   }
 
   async function guardar() {
@@ -37,7 +63,7 @@ export default function Productos() {
     }
     resetForm();
     setShowForm(false);
-    cargar();
+    cargar(page);
   }
 
   function editar(p) {
@@ -46,24 +72,19 @@ export default function Productos() {
     setShowForm(true);
   }
 
+  function resetForm() {
+    setForm({ codigo: "", nombre: "", descripcion: "", categoria_id: "", artesano_id: "", precio: "", costo: "", moneda: "CRC", stock: "", stock_minimo: "" });
+    setEditando(null);
+  }
+
   async function eliminar(id) {
     if (confirm("¿Eliminar producto?")) {
       await api.delete(`/productos/${id}`);
-      cargar();
+      cargar(page);
     }
   }
 
-  const filtrados = productos.filter((p) => !search || p.nombre.toLowerCase().includes(search.toLowerCase()) || p.codigo.toLowerCase().includes(search.toLowerCase()));
-  const ordenados = [...filtrados].sort((a, b) => {
-    const va = (a[sortCampo] || "").toString().toLowerCase();
-    const vb = (b[sortCampo] || "").toString().toLowerCase();
-    return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
-  });
-
-  function toggleSort(campo) {
-    if (sortCampo === campo) setSortDir(sortDir === "asc" ? "desc" : "asc");
-    else { setSortCampo(campo); setSortDir("asc"); }
-  }
+  const totalPages = Math.ceil(total / perPage);
 
   return (
     <div>
@@ -72,7 +93,7 @@ export default function Productos() {
         <button onClick={() => { resetForm(); setShowForm(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700">+ Nuevo</button>
       </div>
 
-      <input type="text" placeholder="Buscar por nombre o código..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full p-3 border rounded-xl mb-4" />
+      <input type="text" placeholder="Buscar por nombre o código..." value={search} onChange={handleSearch} className="w-full p-3 border rounded-xl mb-4" />
 
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowForm(false)}>
@@ -95,7 +116,7 @@ export default function Productos() {
                 <option value="USD">USD ($)</option>
               </select>
               <input placeholder="Precio" type="number" step="0.01" value={form.precio} onChange={(e) => setForm({ ...form, precio: e.target.value })} className="p-2 border rounded-lg" />
-              <input placeholder="Costo" type="number" step="0.01" value={form.costo} onChange={(e) => setForm({ ...form, costo: e.target.value })} className="p-2 border rounded-lg" />
+              <input placeholder="Costo" type="number" step="0.01" value={form.costo} onChange={(e) => { const c = e.target.value; setForm({ ...form, costo: c, precio: calcularPrecio(c) || form.precio }); }} className="p-2 border rounded-lg" />
               <input placeholder="Stock" type="number" step="0.01" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className="p-2 border rounded-lg" />
               <input placeholder="Stock mínimo" type="number" step="0.01" value={form.stock_minimo} onChange={(e) => setForm({ ...form, stock_minimo: e.target.value })} className="p-2 border rounded-lg" />
             </div>
@@ -111,12 +132,8 @@ export default function Productos() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-left">
             <tr>
-              <th className="p-3 cursor-pointer hover:text-blue-600 select-none" onClick={() => toggleSort("codigo")}>
-                Código {sortCampo === "codigo" ? (sortDir === "asc" ? "▲" : "▼") : ""}
-              </th>
-              <th className="p-3 cursor-pointer hover:text-blue-600 select-none" onClick={() => toggleSort("nombre")}>
-                Nombre {sortCampo === "nombre" ? (sortDir === "asc" ? "▲" : "▼") : ""}
-              </th>
+              <th className="p-3">Código</th>
+              <th className="p-3">Nombre</th>
               <th className="p-3">Categoría</th>
               <th className="p-3">Artesano</th>
               <th className="p-3">Precio</th>
@@ -126,7 +143,7 @@ export default function Productos() {
             </tr>
           </thead>
           <tbody>
-            {ordenados.map((p) => (
+            {productos.map((p) => (
               <tr key={p.id} className="border-t hover:bg-gray-50">
                 <td className="p-3 font-mono">{p.codigo}</td>
                 <td className="p-3">{p.nombre}</td>
@@ -141,10 +158,20 @@ export default function Productos() {
                 </td>
               </tr>
             ))}
-            {filtrados.length === 0 && <tr><td colSpan={8} className="p-6 text-center text-gray-400">Sin productos</td></tr>}
+            {productos.length === 0 && <tr><td colSpan={8} className="p-6 text-center text-gray-400">Sin productos</td></tr>}
           </tbody>
         </table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4 text-sm">
+          <span className="text-gray-500">{total} productos — Pág. {page} de {totalPages}</span>
+          <div className="flex gap-2">
+            <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="px-3 py-1 border rounded-lg hover:bg-gray-100 disabled:opacity-40">← Anterior</button>
+            <button disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="px-3 py-1 border rounded-lg hover:bg-gray-100 disabled:opacity-40">Siguiente →</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

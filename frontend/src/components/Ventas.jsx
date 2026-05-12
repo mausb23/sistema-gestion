@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { api } from "../lib/api";
 import { store } from "../lib/store";
 import { money } from "../lib/format";
@@ -18,26 +18,53 @@ export default function Ventas() {
   const [busquedaTexto, setBusquedaTexto] = useState("");
   const inputRef = useRef(null);
 
+  const [clientes, setClientes] = useState([]);
+  const [clienteBusqueda, setClienteBusqueda] = useState("");
+  const [clienteId, setClienteId] = useState(null);
+  const [clienteNombre, setClienteNombre] = useState("");
+  const [showClientes, setShowClientes] = useState(false);
+  const [ventaCompletada, setVentaCompletada] = useState(null);
+  const [emailDestino, setEmailDestino] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [mensajeEnvio, setMensajeEnvio] = useState("");
+  const [resultadosBusqueda, setResultadosBusqueda] = useState([]);
+  const debounceRef2 = useRef(null);
+
   const usuario = store.getUsuario();
 
   useEffect(() => {
-    api.get("/productos").then(setProductos);
-    api.get("/ventas").then(setVentas);
-    api.get("/config").then((cfg) => {
-      if (cfg.tipo_cambio_compra) setTipoCambio(parseFloat(cfg.tipo_cambio_compra));
-      if (cfg.tipo_cambio_venta) setTipoCambioVenta(parseFloat(cfg.tipo_cambio_venta));
-    });
+    cargarDatos();
   }, []);
 
-  useEffect(() => { inputRef.current?.focus(); }, [showHistorial]);
-
-  function buscarProducto(codigo) {
-    const limpio = codigo.trim();
-    if (!limpio) return null;
-    return productos.find(
-      (p) => p.codigo === limpio || p.codigo.replace(/-/g, "") === limpio.replace(/-/g, "")
-    );
+  async function cargarDatos() {
+    setVentas(await api.get("/ventas"));
+    const [cfg, cs] = await Promise.all([
+      api.get("/config"),
+      api.get("/clientes"),
+    ]);
+    if (cfg.tipo_cambio_compra) setTipoCambio(parseFloat(cfg.tipo_cambio_compra));
+    if (cfg.tipo_cambio_venta) setTipoCambioVenta(parseFloat(cfg.tipo_cambio_venta));
+    setClientes(cs);
   }
+
+  const buscarClientes = useCallback(async (q) => {
+    if (!q.trim()) { setClientes(await api.get("/clientes")); return; }
+    setClientes(await api.get(`/clientes?busqueda=${encodeURIComponent(q)}`));
+  }, []);
+
+  async function buscarProductoApi(codigo) {
+    const res = await api.get(`/productos?busqueda=${encodeURIComponent(codigo)}&per_page=5&solo_activos=true`);
+    const items = res.items || [];
+    return items.find((p) => p.codigo === codigo || p.codigo.replace(/-/g, "") === codigo.replace(/-/g, ""));
+  }
+
+  async function buscarProductosPorTexto(texto) {
+    if (!texto.trim()) return [];
+    const res = await api.get(`/productos?busqueda=${encodeURIComponent(texto)}&per_page=20&solo_activos=true`);
+    return (res.items || []).filter((p) => p.stock > 0);
+  }
+
+  useEffect(() => { inputRef.current?.focus(); }, [showHistorial]);
 
   function agregarItem(p) {
     if (p.stock <= 0) {
@@ -59,9 +86,9 @@ export default function Ventas() {
     setErrorMsg("");
   }
 
-  function manejarCodigo(e) {
+  async function manejarCodigo(e) {
     if (e.key !== "Enter") return;
-    const p = buscarProducto(codigoInput);
+    const p = await buscarProductoApi(codigoInput);
     if (p) {
       agregarItem(p);
     } else {
@@ -80,25 +107,48 @@ export default function Ventas() {
 
   async function registrarVenta() {
     if (!items.length || !usuario) return;
-    await api.post("/ventas", {
+    const venta = await api.post("/ventas", {
       usuario_id: usuario.id,
+      cliente_id: clienteId,
       items: items.map((i) => ({ producto_id: i.producto_id, cantidad: i.cantidad, precio_unitario: i.precio_unitario })),
       metodo_pago: metodoPago,
       moneda: esUSD ? "USD" : "CRC",
     });
+    const total = items.reduce((s, i) => s + i.subtotal, 0);
+    setVentaCompletada({ id: venta.id, total, moneda: esUSD ? "USD" : "CRC", items: [...items] });
     setItems([]);
     setUltimoProducto(null);
-    api.get("/productos").then(setProductos);
-    api.get("/ventas").then(setVentas);
+    setEmailDestino("");
+    setMensajeEnvio("");
+    cargarDatos();
     inputRef.current?.focus();
+  }
+
+  async function enviarRecibo() {
+    if (!ventaCompletada || !emailDestino.trim()) return;
+    setEnviando(true);
+    setMensajeEnvio("");
+    const res = await api.post(`/notificaciones/enviar-recibo/${ventaCompletada.id}?destinatario=${encodeURIComponent(emailDestino.trim())}`);
+    setMensajeEnvio(res.error ? `Error: ${res.error}` : "Recibo enviado correctamente");
+    setEnviando(false);
+  }
+
+  function abrirWhatsApp(telefono, texto) {
+    const pais = "506";
+    const num = telefono.replace(/\D/g, "");
+    const full = num.startsWith(pais) ? num : pais + num;
+    window.open(`https://wa.me/${full}?text=${encodeURIComponent(texto)}`, "_blank");
   }
 
   const total = items.reduce((s, i) => s + i.subtotal, 0);
   const totalUSD = tipoCambio ? total / tipoCambio : 0;
 
-  const filtradosBusqueda = productos.filter(
-    (p) => p.stock > 0 && (!busquedaTexto || p.nombre.toLowerCase().includes(busquedaTexto.toLowerCase()) || p.codigo.includes(busquedaTexto))
-  );
+  useEffect(() => {
+    if (debounceRef2.current) clearTimeout(debounceRef2.current);
+    debounceRef2.current = setTimeout(async () => {
+      setResultadosBusqueda(await buscarProductosPorTexto(busquedaTexto));
+    }, 300);
+  }, [busquedaTexto]);
 
   return (
     <div>
@@ -121,6 +171,36 @@ export default function Ventas() {
           )}
 
           <div className="bg-white rounded-xl shadow p-4 mb-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  placeholder="Buscar cliente por nombre..."
+                  value={clienteBusqueda}
+                  onChange={(e) => { setClienteBusqueda(e.target.value); setShowClientes(true); buscarClientes(e.target.value); }}
+                  onFocus={() => setShowClientes(true)}
+                  className="w-full p-2 border rounded-lg text-sm"
+                />
+                {showClientes && (
+                  <div className="absolute top-full left-0 right-0 bg-white border rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto mt-1">
+                    {clientes.filter((c) => !clienteBusqueda || c.nombre.toLowerCase().includes(clienteBusqueda.toLowerCase())).map((c) => (
+                      <button key={c.id} type="button" onClick={() => { setClienteId(c.id); setClienteNombre(c.nombre); setClienteBusqueda(c.nombre); setShowClientes(false); }} className="w-full text-left p-2 hover:bg-blue-50 text-sm border-b flex justify-between">
+                        <span>{c.nombre}</span>
+                        <span className="text-gray-400 text-xs">{c.telefono || c.email || ""}</span>
+                      </button>
+                    ))}
+                    {!clienteBusqueda && clientes.length === 0 && <p className="p-2 text-gray-400 text-sm">Sin clientes</p>}
+                    <button type="button" onClick={() => { setClienteId(null); setClienteNombre(clienteBusqueda); setShowClientes(false); }} className="w-full text-left p-2 text-blue-600 hover:bg-blue-50 text-sm font-medium border-t">+ Nuevo: {clienteBusqueda || "sin nombre"}</button>
+                  </div>
+                )}
+              </div>
+              {clienteNombre && (
+                <span className="text-sm text-gray-500 truncate max-w-40">{clienteNombre}</span>
+              )}
+              {clienteId && (
+                <button onClick={() => { setClienteId(null); setClienteNombre(""); setClienteBusqueda(""); }} className="text-red-500 text-xs hover:underline">Quitar</button>
+              )}
+            </div>
             <div className="flex gap-3">
               <input
                 ref={inputRef}
@@ -156,7 +236,7 @@ export default function Ventas() {
                 <h3 className="text-xl font-bold mb-4">Buscar producto</h3>
                 <input type="text" placeholder="Buscar por nombre o código..." value={busquedaTexto} onChange={(e) => setBusquedaTexto(e.target.value)} className="w-full p-3 border rounded-lg mb-4" autoFocus />
                 <div className="space-y-2">
-                  {filtradosBusqueda.map((p) => (
+                  {resultadosBusqueda.map((p) => (
                     <button key={p.id} onClick={() => { agregarItem(p); setShowBusqueda(false); }} className="w-full text-left p-3 rounded-lg hover:bg-blue-50 border flex justify-between items-center">
                       <div>
                         <p className="font-medium">{p.nombre}</p>
@@ -165,7 +245,7 @@ export default function Ventas() {
                       <span className="font-bold text-blue-600">₡{money(p.precio)}</span>
                     </button>
                   ))}
-                  {filtradosBusqueda.length === 0 && <p className="text-gray-400 text-center py-4">Sin resultados</p>}
+                  {resultadosBusqueda.length === 0 && busquedaTexto && <p className="text-gray-400 text-center py-4">Sin resultados</p>}
                 </div>
               </div>
             </div>
@@ -217,6 +297,41 @@ export default function Ventas() {
               </button>
             </div>
           </div>
+
+          {ventaCompletada && (
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
+              <h3 className="font-semibold text-green-800 mb-2">Venta #{ventaCompletada.id} completada</h3>
+              <p className="text-sm text-green-700 mb-3">Total: {ventaCompletada.moneda === "USD" ? "$" : "₡"}{money(ventaCompletada.total)}</p>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-1">Enviar recibo por correo</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="email" placeholder="correo@ejemplo.com"
+                      value={emailDestino}
+                      onChange={(e) => setEmailDestino(e.target.value)}
+                      className="flex-1 p-2 border rounded-lg text-sm"
+                    />
+                    <button onClick={enviarRecibo} disabled={enviando || !emailDestino.trim()} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:bg-gray-300">
+                      {enviando ? "Enviando..." : "Enviar"}
+                    </button>
+                  </div>
+                  {mensajeEnvio && <p className={`text-sm mt-1 ${mensajeEnvio.startsWith("Error") ? "text-red-600" : "text-green-600"}`}>{mensajeEnvio}</p>}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => abrirWhatsApp(clienteBusqueda ? "" : "", `Hola, gracias por su compra en ${window.location.hostname}. Total: ${ventaCompletada.moneda === "USD" ? "$" : "₡"}${money(ventaCompletada.total)} - Venta #${ventaCompletada.id}`)}
+                    className="flex-1 bg-green-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-green-700 disabled:bg-gray-300"
+                  >
+                    Enviar recibo por WhatsApp
+                  </button>
+                  <button onClick={() => setVentaCompletada(null)} className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-300">
+                    Nueva venta
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div>

@@ -9,6 +9,7 @@ from app.models.configuracion import Configuracion
 from app.models.artesano import Artesano
 from app.models.pago_artesano import PagoArtesano
 from app.models.comunidad import Comunidad
+from app.models.ahorro import AhorroArtesano
 
 __all__ = [
     "Usuario",
@@ -24,4 +25,5 @@ __all__ = [
     "Artesano",
     "PagoArtesano",
     "Comunidad",
+    "AhorroArtesano",
 ]

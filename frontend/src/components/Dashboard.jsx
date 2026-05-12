@@ -10,7 +10,7 @@ export default function Dashboard() {
   useEffect(() => {
     api.get("/reportes/resumen").then(setData);
     api.get("/ventas/hoy").then((r) => setVentasHoy(r.ventas || []));
-    api.get("/inventario/stock-bajo").then(setStockBajo);
+    api.get("/inventario/stock-bajo?per_page=100").then((r) => setStockBajo(r.items || r || []));
   }, []);
 
   return (

@@ -99,7 +99,9 @@ def main():
                 comunidad_id = None
                 if comunidad_codigo in comunidad_cache:
                     comunidad_id = comunidad_cache[comunidad_codigo]
+                numero_art = len([x for x in artesano_cache.values()]) + 1
                 art = Artesano(
+                    codigo=f"{comunidad_codigo}-{str(numero_art).zfill(3)}",
                     nombre=nombre_limpio,
                     comunidad_id=comunidad_id,
                 )

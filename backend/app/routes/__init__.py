@@ -10,3 +10,4 @@ from . import config
 from . import artesanos
 from . import liquidaciones
 from . import comunidades
+from . import notificaciones

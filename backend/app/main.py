@@ -22,6 +22,7 @@ from app.routes import (
     artesanos,
     liquidaciones,
     comunidades,
+    notificaciones,
 )
 from app.services.tipo_cambio import obtener_tipo_cambio
 from app.models.configuracion import Configuracion
@@ -48,6 +49,7 @@ app.include_router(config.router)
 app.include_router(artesanos.router)
 app.include_router(liquidaciones.router)
 app.include_router(comunidades.router)
+app.include_router(notificaciones.router)
 
 
 def guardar_tipo_cambio(tc: dict):

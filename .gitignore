@@ -18,6 +18,7 @@ backend/debug_*
 
 # Node
 node_modules/
+frontend/.astro/
 frontend/dist/
 
 # Frontend build output

@@ -106,7 +106,34 @@ export default function Configuracion() {
             <button onClick={agregarCategoria} className="bg-blue-600 text-white px-4 rounded-lg hover:bg-blue-700">+</button>
           </div>
         </div>
+
+        <div className="bg-white p-6 rounded-xl shadow">
+          <h3 className="font-semibold mb-4">Correo electrónico (SMTP)</h3>
+          <p className="text-sm text-gray-500 mb-4">Configuración para enviar recibos por email</p>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm text-gray-500 mb-1">Servidor SMTP</label>
+              <input value={editConfig.smtp_host || ""} onChange={(e) => setEditConfig({ ...editConfig, smtp_host: e.target.value })} onBlur={() => guardarConfig("smtp_host", editConfig.smtp_host)} placeholder="smtp.gmail.com" className="w-full p-2 border rounded-lg" />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-500 mb-1">Puerto</label>
+              <input value={editConfig.smtp_port || "587"} onChange={(e) => setEditConfig({ ...editConfig, smtp_port: e.target.value })} onBlur={() => guardarConfig("smtp_port", editConfig.smtp_port)} className="w-full p-2 border rounded-lg" />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-500 mb-1">Usuario</label>
+              <input value={editConfig.smtp_user || ""} onChange={(e) => setEditConfig({ ...editConfig, smtp_user: e.target.value })} onBlur={() => guardarConfig("smtp_user", editConfig.smtp_user)} placeholder="tu@correo.com" className="w-full p-2 border rounded-lg" />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-500 mb-1">Contraseña</label>
+              <input type="password" value={editConfig.smtp_password || ""} onChange={(e) => setEditConfig({ ...editConfig, smtp_password: e.target.value })} onBlur={() => guardarConfig("smtp_password", editConfig.smtp_password)} className="w-full p-2 border rounded-lg" />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-500 mb-1">Correo remitente</label>
+              <input value={editConfig.smtp_from || ""} onChange={(e) => setEditConfig({ ...editConfig, smtp_from: e.target.value })} onBlur={() => guardarConfig("smtp_from", editConfig.smtp_from)} placeholder="ventas@tutienda.com" className="w-full p-2 border rounded-lg" />
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </div>  
   );
 }

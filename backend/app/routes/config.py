@@ -18,6 +18,11 @@ VALORES_DEFECTO = {
     "simbolo_moneda": "₡",
     "tipo_cambio_compra": "450.00",
     "tipo_cambio_venta": "464.00",
+    "smtp_host": "",
+    "smtp_port": "587",
+    "smtp_user": "",
+    "smtp_password": "",
+    "smtp_from": "",
 }
 
 

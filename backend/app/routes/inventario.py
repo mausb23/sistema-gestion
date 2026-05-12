@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from typing import Optional
 from app.database import get_db
 from app.models.producto import Producto
 from app.models.inventario import MovimientoInventario
@@ -17,8 +18,15 @@ class MovimientoCreate(BaseModel):
 
 
 @router.get("/movimientos")
-def listar_movimientos(db: Session = Depends(get_db)):
-    return db.query(MovimientoInventario).order_by(MovimientoInventario.fecha.desc()).limit(100).all()
+def listar_movimientos(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    q = db.query(MovimientoInventario)
+    total = q.count()
+    items = q.order_by(MovimientoInventario.fecha.desc()).offset((page - 1) * per_page).limit(per_page).all()
+    return {"items": items, "total": total, "page": page, "per_page": per_page}
 
 
 @router.post("/movimientos")
@@ -49,8 +57,21 @@ def crear_movimiento(data: MovimientoCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/stock-bajo")
-def stock_bajo(db: Session = Depends(get_db)):
-    return db.query(Producto).filter(
+def stock_bajo(
+    busqueda: str = "",
+    page: int = Query(1, ge=1),
+    per_page: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    q = db.query(Producto).filter(
         Producto.activo == 1,
         Producto.stock <= Producto.stock_minimo,
-    ).all()
+    )
+    if busqueda:
+        q = q.filter(
+            Producto.nombre.ilike(f"%{busqueda}%")
+            | Producto.codigo.ilike(f"%{busqueda}%")
+        )
+    total = q.count()
+    items = q.order_by(Producto.nombre).offset((page - 1) * per_page).limit(per_page).all()
+    return {"items": items, "total": total, "page": page, "per_page": per_page}

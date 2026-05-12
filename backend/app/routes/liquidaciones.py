@@ -9,6 +9,7 @@ from app.models.artesano import Artesano
 from app.models.producto import Producto
 from app.models.venta import Venta, VentaItem
 from app.models.pago_artesano import PagoArtesano
+from app.models.ahorro import AhorroArtesano
 
 router = APIRouter(prefix="/api/liquidaciones", tags=["liquidaciones"])
 
@@ -86,6 +87,34 @@ def resumen(periodo: Optional[str] = None, db: Session = Depends(get_db)):
                 "pendiente": round(neto - pagado, 2),
             })
 
+    for r in resultado:
+        art_id = r["artesano_id"]
+        existente = db.query(AhorroArtesano).filter(
+            AhorroArtesano.artesano_id == art_id,
+            AhorroArtesano.periodo == periodo,
+        ).first()
+        if not existente:
+            ahorro_monto = round(r["monto_vendido"] * 0.05, 2)
+            if ahorro_monto > 0:
+                db.add(AhorroArtesano(
+                    artesano_id=art_id,
+                    periodo=periodo,
+                    monto_ahorrado=ahorro_monto,
+                ))
+    db.commit()
+
+    ahorros = db.query(
+        AhorroArtesano.artesano_id,
+        func.sum(AhorroArtesano.monto_ahorrado).label("total_ahorrado"),
+        func.sum(AhorroArtesano.monto_pagado).label("total_pagado_ahorro"),
+    ).filter(AhorroArtesano.periodo == periodo).group_by(AhorroArtesano.artesano_id).all()
+    ahorros_dict = {a.artesano_id: {"ahorrado": float(a.total_ahorrado), "pagado": float(a.total_pagado_ahorro or 0)} for a in ahorros}
+
+    for r in resultado:
+        a = ahorros_dict.get(r["artesano_id"], {"ahorrado": 0, "pagado": 0})
+        r["ahorro"] = round(a["ahorrado"], 2)
+        r["ahorro_pagado"] = round(a["pagado"], 2)
+
     return {
         "periodo": periodo,
         "liquidaciones": resultado,
@@ -93,6 +122,8 @@ def resumen(periodo: Optional[str] = None, db: Session = Depends(get_db)):
         "total_neto": round(sum(r["neto"] for r in resultado), 2),
         "total_pagado": round(sum(r["monto_pagado"] for r in resultado), 2),
         "total_pendiente": round(sum(r["pendiente"] for r in resultado), 2),
+        "total_ahorro": round(sum(r["ahorro"] for r in resultado), 2),
+        "total_ahorro_pagado": round(sum(r["ahorro_pagado"] for r in resultado), 2),
     }
 
 
@@ -121,6 +152,28 @@ def eliminar_pago(pago_id: int, db: Session = Depends(get_db)):
     db.delete(p)
     db.commit()
     return {"ok": True}
+
+
+@router.post("/ahorros/pagar")
+def pagar_ahorro(artesano_id: int, periodo: str, monto: float, db: Session = Depends(get_db)):
+    a = db.query(AhorroArtesano).filter(
+        AhorroArtesano.artesano_id == artesano_id,
+        AhorroArtesano.periodo == periodo,
+    ).first()
+    if not a:
+        return {"error": "No hay ahorros para este artesano en el período"}
+    a.monto_pagado = round(a.monto_pagado + monto, 2)
+    a.fecha_pago = datetime.now()
+    db.commit()
+    return {"ok": True, "monto_pagado": a.monto_pagado}
+
+
+@router.get("/ahorros/historial")
+def historial_ahorros(artesano_id: int = None, db: Session = Depends(get_db)):
+    q = db.query(AhorroArtesano)
+    if artesano_id:
+        q = q.filter(AhorroArtesano.artesano_id == artesano_id)
+    return q.order_by(AhorroArtesano.periodo.desc()).all()
 
 
 @router.get("/historial")

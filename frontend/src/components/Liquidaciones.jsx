@@ -2,6 +2,13 @@ import { useState, useEffect } from "react";
 import { api } from "../lib/api";
 import { money } from "../lib/format";
 
+function abrirWhatsApp(telefono, texto) {
+  const pais = "506";
+  const num = (telefono || "").replace(/\D/g, "");
+  const full = num.startsWith(pais) ? num : pais + num;
+  window.open(`https://wa.me/${full}?text=${encodeURIComponent(texto)}`, "_blank");
+}
+
 export default function Liquidaciones() {
   const hoy = new Date();
   const periodoActual = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`;
@@ -10,6 +17,8 @@ export default function Liquidaciones() {
   const [pagos, setPagos] = useState([]);
   const [artesanos, setArtesanos] = useState([]);
   const [pagoForm, setPagoForm] = useState({ artesano_id: "", monto: "" });
+  const [ahorroPagoForm, setAhorroPagoForm] = useState({ artesano_id: "", monto: "" });
+  const [tab, setTab] = useState("liquidaciones");
 
   useEffect(() => {
     api.get("/artesanos").then(setArtesanos);
@@ -34,6 +43,13 @@ export default function Liquidaciones() {
     api.get(`/liquidaciones/pagos?periodo=${periodo}`).then(setPagos);
   }
 
+  async function pagarAhorro(artesanoId, monto) {
+    if (!artesanoId || !monto) return;
+    await api.post(`/liquidaciones/ahorros/pagar?artesano_id=${artesanoId}&periodo=${periodo}&monto=${monto}`);
+    setAhorroPagoForm({ artesano_id: "", monto: "" });
+    api.get(`/liquidaciones/resumen?periodo=${periodo}`).then(setData);
+  }
+
   function cambiarMes(delta) {
     const [y, m] = periodo.split("-").map(Number);
     const d = new Date(y, m - 1 + delta, 1);
@@ -51,7 +67,13 @@ export default function Liquidaciones() {
         </div>
       </div>
 
-      {data && (
+      <div className="flex gap-1 mb-6 border-b">
+        <button onClick={() => setTab("liquidaciones")} className={`px-6 py-2 text-sm font-semibold rounded-t-lg ${tab === "liquidaciones" ? "bg-white border border-b-0 border-gray-200 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}>Liquidaciones</button>
+        <button onClick={() => setTab("ahorros")} className={`px-6 py-2 text-sm font-semibold rounded-t-lg ${tab === "ahorros" ? "bg-white border border-b-0 border-gray-200 text-yellow-600" : "text-gray-500 hover:text-gray-700"}`}>Ahorros</button>
+      </div>
+
+      {data && tab === "liquidaciones" && (
+        <>
         <div className="grid grid-cols-4 gap-4 mb-6">
           <div className="bg-white p-4 rounded-xl shadow">
             <p className="text-gray-500 text-sm">Total vendido</p>
@@ -70,9 +92,7 @@ export default function Liquidaciones() {
             <p className="text-2xl font-bold text-red-600">₡{money(data.total_pendiente)}</p>
           </div>
         </div>
-      )}
-
-      <div className="bg-white rounded-xl shadow p-4 mb-6">
+        <div className="bg-white rounded-xl shadow p-4 mb-6">
         <h3 className="font-semibold mb-4">Liquidaciones del período</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -87,10 +107,13 @@ export default function Liquidaciones() {
                 <th className="pb-2">Pagado</th>
                 <th className="pb-2">Pendiente</th>
                 <th className="pb-2"></th>
+                <th className="pb-2"></th>
               </tr>
             </thead>
             <tbody>
-              {data?.liquidaciones.map((l) => (
+              {data?.liquidaciones.map((l) => {
+                const art = artesanos.find((a) => a.id === l.artesano_id);
+                return (
                 <tr key={l.artesano_id} className="border-b">
                   <td className="py-2 font-medium">{l.artesano}</td>
                   <td className="py-2">₡{money(l.monto_vendido)}</td>
@@ -112,8 +135,20 @@ export default function Liquidaciones() {
                       </button>
                     )}
                   </td>
+                  <td className="py-2">
+                    {art?.telefono && (
+                      <button
+                        onClick={() => abrirWhatsApp(art.telefono, `Hola ${l.artesano}, le informamos que tiene un saldo pendiente de ₡${money(l.pendiente)} por el período ${periodo}. Por favor contáctenos para coordinar el pago.`)}
+                        className="text-green-600 hover:text-green-800 text-xs font-semibold px-2 py-1 rounded border border-green-300 hover:bg-green-50"
+                        title="Notificar por WhatsApp"
+                      >
+                        WhatsApp
+                      </button>
+                    )}
+                  </td>
                 </tr>
-              ))}
+                );
+              })}
               {(!data?.liquidaciones || data.liquidaciones.length === 0) && (
                 <tr><td colSpan={9} className="py-4 text-center text-gray-400">Sin movimientos</td></tr>
               )}
@@ -154,12 +189,21 @@ export default function Liquidaciones() {
           <h3 className="font-semibold mt-6 mb-3">Pagos registrados</h3>
           <div className="space-y-2 max-h-64 overflow-y-auto">
             {pagos.map((p) => (
-              <div key={p.id} className="flex justify-between items-center border-b pb-2 text-sm">
+              <div key={p.id} className="flex items-center justify-between border-b pb-2 text-sm">
                 <div>
                   <p className="font-medium">{p.artesano?.nombre || "-"}</p>
                   <p className="text-xs text-gray-500">{new Date(p.fecha_pago).toLocaleString()}</p>
                 </div>
-                <span className="font-bold text-green-600">₡{money(p.monto)}</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-green-600">₡{money(p.monto)}</span>
+                  <button
+                    onClick={() => abrirWhatsApp(p.artesano?.telefono, `Hola ${p.artesano?.nombre || ""}, le informamos que se ha registrado un pago de ₡${money(p.monto)} correspondiente al período ${p.periodo}. Gracias por su trabajo.`)}
+                    className="text-green-600 hover:text-green-800 text-xs font-semibold px-2 py-1 rounded border border-green-300 hover:bg-green-50"
+                    title="Enviar por WhatsApp"
+                  >
+                    WhatsApp
+                  </button>
+                </div>
               </div>
             ))}
             {pagos.length === 0 && <p className="text-gray-400 text-center py-4">Sin pagos este período</p>}
@@ -189,6 +233,90 @@ export default function Liquidaciones() {
           </div>
         </div>
       </div>
+        </> )}
+      {data && tab === "ahorros" && (
+        <>
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="bg-white p-4 rounded-xl shadow border-l-4 border-yellow-400">
+            <p className="text-gray-500 text-sm">Ahorros totales (5%)</p>
+            <p className="text-2xl font-bold text-yellow-600">₡{money(data.total_ahorro || 0)}</p>
+          </div>
+          <div className="bg-white p-4 rounded-xl shadow border-l-4 border-emerald-400">
+            <p className="text-gray-500 text-sm">Ahorros pagados</p>
+            <p className="text-2xl font-bold text-emerald-600">₡{money(data.total_ahorro_pagado || 0)}</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow p-4 mb-6">
+          <h3 className="font-semibold mb-4">Ahorros por artesano (5% de las ventas) — se pagan al final del año</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-gray-500 border-b">
+                  <th className="pb-2">Artesano</th>
+                  <th className="pb-2">Comunidad</th>
+                  <th className="pb-2">Ahorrado</th>
+                  <th className="pb-2">Pagado</th>
+                  <th className="pb-2">Pendiente</th>
+                  <th className="pb-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {data?.liquidaciones.filter((l) => l.ahorro > 0).map((l) => {
+                  const art = artesanos.find((a) => a.id === l.artesano_id);
+                  return (
+                  <tr key={l.artesano_id} className="border-b">
+                    <td className="py-2 font-medium">{l.artesano}</td>
+                    <td className="py-2 text-sm text-gray-500">{art?.comunidad?.nombre || "-"}</td>
+                    <td className="py-2">₡{money(l.ahorro)}</td>
+                    <td className="py-2 text-green-600">₡{money(l.ahorro_pagado || 0)}</td>
+                    <td className={`py-2 font-medium ${(l.ahorro - (l.ahorro_pagado || 0)) > 0 ? "text-yellow-600" : "text-green-600"}`}>
+                      ₡{money(l.ahorro - (l.ahorro_pagado || 0))}
+                    </td>
+                    <td className="py-2">
+                      {(l.ahorro - (l.ahorro_pagado || 0)) > 0 && (
+                        <button
+                          onClick={() => pagarAhorro(l.artesano_id, (l.ahorro - (l.ahorro_pagado || 0)).toFixed(2))}
+                          className="text-yellow-600 text-xs hover:underline"
+                        >
+                          Pagar ahorro
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                  );
+                })}
+                {(!data?.liquidaciones || data.liquidaciones.filter((l) => l.ahorro > 0).length === 0) && (
+                  <tr><td colSpan={6} className="py-4 text-center text-gray-400">Sin ahorros este período</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow p-4">
+          <h3 className="font-semibold mb-4">Resumen de ahorros por período</h3>
+          <p className="text-sm text-gray-600 mb-4">El 5% de cada venta se aparta como ahorro para el artesano y se paga al final del año.</p>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center border-b pb-2">
+              <span>Total vendido del período</span>
+              <span className="text-blue-600 font-medium">₡{money(data?.total_vendido || 0)}</span>
+            </div>
+            <div className="flex justify-between items-center border-b pb-2">
+              <span>Ahorro (5%)</span>
+              <span className="text-yellow-600 font-medium">₡{money(data?.total_ahorro || 0)}</span>
+            </div>
+            <div className="flex justify-between items-center border-b pb-2">
+              <span>Ya pagado</span>
+              <span className="text-emerald-600 font-medium">₡{money(data?.total_ahorro_pagado || 0)}</span>
+            </div>
+            <div className="flex justify-between items-center pt-2 font-bold">
+              <span>Pendiente de pago</span>
+              <span className="text-yellow-600">₡{money((data?.total_ahorro || 0) - (data?.total_ahorro_pagado || 0))}</span>
+            </div>
+          </div>
+        </div>
+        </> )}
     </div>
   );
 }
