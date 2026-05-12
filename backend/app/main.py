@@ -3,6 +3,7 @@ import os
 import threading
 import time
 import urllib.request
+from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -27,7 +28,7 @@ from app.routes import (
 from app.services.tipo_cambio import obtener_tipo_cambio
 from app.models.configuracion import Configuracion
 
-app = FastAPI(title="Gestión de Ventas", docs_url=None, redoc_url=None)
+app = FastAPI(title="Gestión de Ventas", docs_url=None, redoc_url=None, lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -135,8 +136,8 @@ def seed_comunidades():
         db.close()
 
 
-@app.on_event("startup")
-def on_startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     init_db()
     seed_comunidades()
     try:
@@ -149,6 +150,7 @@ def on_startup():
     hilo.start()
     if STATIC_DIR.exists() and any(STATIC_DIR.iterdir()):
         app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
+    yield
 
 
 @app.get("/api/health")
