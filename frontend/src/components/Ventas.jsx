@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, Fragment } from "react";
 import { api } from "../lib/api";
 import { store } from "../lib/store";
 import { money, etiquetaMetodoPago } from "../lib/format";
@@ -28,6 +28,7 @@ export default function Ventas() {
   const [enviando, setEnviando] = useState(false);
   const [mensajeEnvio, setMensajeEnvio] = useState("");
   const [resultadosBusqueda, setResultadosBusqueda] = useState([]);
+  const [ventaExpandida, setVentaExpandida] = useState(null);
   const debounceRef2 = useRef(null);
 
   const usuario = store.getUsuario();
@@ -574,18 +575,46 @@ export default function Ventas() {
               </thead>
               <tbody>
                 {ventas.map((v) => (
-                  <tr key={v.id} className="border-t hover:bg-gray-50">
-                    <td className="p-3 font-mono">{v.id}</td>
+                  <Fragment key={v.id}>
+                  <tr className="border-t hover:bg-gray-50 cursor-pointer" onClick={() => setVentaExpandida(ventaExpandida === v.id ? null : v.id)}>
+                    <td className="p-3 font-mono">{ventaExpandida === v.id ? "▼" : "▶"} {v.id}</td>
                     <td className="p-3">{new Date(v.fecha).toLocaleString()}</td>
                     <td className="p-3">{v.usuario?.nombre || "-"}</td>
                     <td className="p-3">{v.items?.length || 0}</td>
                     <td className="p-3 font-medium">₡{money(v.total)}</td>
                     <td className="p-3">{etiquetaMetodoPago(v.metodo_pago)}</td>
                     <td className="p-3"><span className={`px-2 py-1 rounded-full text-xs ${v.estado === "completada" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{v.estado}</span></td>
-                    <td className="p-3">
+                    <td className="p-3" onClick={(e) => e.stopPropagation()}>
                       <button onClick={() => api.post(`/ventas/${v.id}/imprimir`).catch(() => {})} className="text-gray-400 hover:text-blue-600 text-sm" title="Reimprimir ticket">🖨</button>
                     </td>
                   </tr>
+                  {ventaExpandida === v.id && v.items?.length > 0 && (
+                    <tr key={`items-${v.id}`} className="bg-gray-50">
+                      <td colSpan={8} className="p-0">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="text-left text-gray-400 border-t">
+                              <th className="pl-10 pr-2 py-1 font-medium">Producto</th>
+                              <th className="px-2 py-1 font-medium">Cant</th>
+                              <th className="px-2 py-1 font-medium text-right">Precio</th>
+                              <th className="pr-4 pl-2 py-1 font-medium text-right">Subtotal</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {v.items.map((item) => (
+                              <tr key={item.id || item.producto_id} className="border-t border-gray-100">
+                                <td className="pl-10 pr-2 py-1">{item.producto?.nombre || item.nombre || "Producto"}</td>
+                                <td className="px-2 py-1">{item.cantidad}</td>
+                                <td className="px-2 py-1 text-right">₡{money(item.precio_unitario)}</td>
+                                <td className="pr-4 pl-2 py-1 text-right font-medium">₡{money(item.subtotal)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 ))}
                 {ventas.length === 0 && <tr><td colSpan={8} className="p-6 text-center text-gray-400">Sin ventas registradas</td></tr>}
               </tbody>
