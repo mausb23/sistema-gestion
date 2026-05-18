@@ -53,6 +53,9 @@ def listar(fecha_desde: Optional[str] = None, fecha_hasta: Optional[str] = None,
 
 @router.get("/hoy")
 def ventas_hoy(db: Session = Depends(get_db)):
+    tc = db.query(Configuracion).filter(Configuracion.clave == "tipo_cambio_compra").first()
+    tc_compra = float(tc.valor) if tc else 500
+
     hoy = date.today()
     inicio = datetime(hoy.year, hoy.month, hoy.day, 0, 0, 0)
     fin = datetime(hoy.year, hoy.month, hoy.day, 23, 59, 59)
@@ -70,6 +73,9 @@ def ventas_hoy(db: Session = Depends(get_db)):
                 for pago in pagos:
                     metodo = pago.get("metodo", v.metodo_pago)
                     monto = pago.get("monto", 0)
+                    moneda = pago.get("moneda", "CRC")
+                    if moneda == "USD":
+                        monto = round(monto * tc_compra, 2)
                     resumen_pagos[metodo] = resumen_pagos.get(metodo, 0) + monto
             except (json.JSONDecodeError, TypeError):
                 key = v.metodo_pago
