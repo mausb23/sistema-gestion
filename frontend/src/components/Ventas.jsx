@@ -111,7 +111,7 @@ export default function Ventas() {
     if (!items.length || !usuario) return;
     const pagosData = splitPago
       ? pagos.filter((p) => parseFloat(p.monto) > 0).map((p) => ({ metodo: p.metodo, monto: parseFloat(p.monto), moneda: monedaDeMetodo(p.metodo) }))
-      : [{ metodo: metodoPago, monto: total, moneda: esUSD ? "USD" : "CRC" }];
+      : [{ metodo: metodoPago, monto: esUSD ? totalUSDCobro : total, moneda: esUSD ? "USD" : "CRC" }];
     const hayUSD = pagosData.some((p) => p.moneda === "USD");
     const hayCRC = pagosData.some((p) => p.moneda === "CRC");
     const monedaVenta = hayUSD && hayCRC ? "CRC" : hayUSD ? "USD" : "CRC";
