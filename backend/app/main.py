@@ -119,18 +119,21 @@ def seed_comunidades():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    try:
-        from sqlalchemy import text
-        with engine.connect() as conn:
-            conn.execute(text("ALTER TABLE ventas ADD COLUMN pagos_detalle TEXT"))
-            conn.execute(text("ALTER TABLE cierres_caja ADD COLUMN usuario_cierre_id INTEGER REFERENCES usuarios(id)"))
-            conn.execute(text("ALTER TABLE cierres_caja ADD COLUMN usuarios_apertura TEXT"))
-            conn.execute(text("ALTER TABLE cierres_caja ADD COLUMN usuarios_cierre TEXT"))
-            conn.execute(text("ALTER TABLE cierres_caja ADD COLUMN comentarios TEXT"))
-            conn.execute(text("ALTER TABLE movimientos_caja ADD COLUMN moneda VARCHAR(10) DEFAULT 'CRC'"))
-            conn.commit()
-    except Exception:
-        logger.info("Columnas de caja ya existen")
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        for stmt in [
+            "ALTER TABLE ventas ADD COLUMN pagos_detalle TEXT",
+            "ALTER TABLE cierres_caja ADD COLUMN usuario_cierre_id INTEGER REFERENCES usuarios(id)",
+            "ALTER TABLE cierres_caja ADD COLUMN usuarios_apertura TEXT",
+            "ALTER TABLE cierres_caja ADD COLUMN usuarios_cierre TEXT",
+            "ALTER TABLE cierres_caja ADD COLUMN comentarios TEXT",
+            "ALTER TABLE movimientos_caja ADD COLUMN moneda VARCHAR(10) DEFAULT 'CRC'",
+        ]:
+            try:
+                conn.execute(text(stmt))
+                conn.commit()
+            except Exception:
+                logger.info(f"Columna ya existe, ignorando: {stmt.split()[-1]}")
     seed_comunidades()
     try:
         tc = obtener_tipo_cambio()
