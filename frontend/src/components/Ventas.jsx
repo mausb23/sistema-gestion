@@ -81,7 +81,7 @@ export default function Ventas() {
     setUltimoProducto(p);
     setErrorMsg("");
     if (p.stock <= 0) {
-      setErrorMsg("⚠ Sin stock registrado — se descontará en negativo");
+      setErrorMsg("⚠ Sin stock registrado — se venderá igual y quedará en 0");
       setTimeout(() => setErrorMsg(""), 3000);
     }
   }
