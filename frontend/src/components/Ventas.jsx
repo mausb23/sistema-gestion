@@ -123,6 +123,10 @@ export default function Ventas() {
     setVentaCompletada({ id: venta.id, total, moneda: hayUSD && hayCRC ? "CRC" : hayUSD ? "USD" : "CRC", items: [...items] });
     setItems([]);
     setUltimoProducto(null);
+    setMontoRecibido("");
+    setSplitPago(false);
+    setPagos([{ metodo: "efectivo", monto: "" }]);
+    setMetodoPago("efectivo");
     setEmailDestino("");
     setMensajeEnvio("");
     cargarDatos();
