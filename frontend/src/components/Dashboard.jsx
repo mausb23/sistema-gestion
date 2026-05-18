@@ -101,9 +101,9 @@ export default function Dashboard({ onNavigate }) {
           )}
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow">
+        <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow">
           <h3 className="font-semibold mb-4">Últimas ventas</h3>
-          <div className="overflow-x-auto">
+          <div className="overflow-y-auto max-h-96">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-gray-500 border-b">
@@ -114,7 +114,7 @@ export default function Dashboard({ onNavigate }) {
                 </tr>
               </thead>
               <tbody>
-                {ventasHoy.slice(0, 10).map((v) => (
+                {ventasHoy.slice(0, 30).map((v) => (
                   <tr key={v.id} className="border-b border-gray-100">
                     <td className="py-2">{new Date(v.fecha).toLocaleTimeString()}</td>
                     <td className="py-2">{v.usuario?.nombre || "-"}</td>
@@ -133,15 +133,15 @@ export default function Dashboard({ onNavigate }) {
           </button>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow">
+        <div className="lg:col-span-3 bg-white p-6 rounded-xl shadow">
           <h3 className="font-semibold mb-4">Estado de artesanos</h3>
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-semibold text-emerald-700">Activos</span>
                 <span className="text-xs text-gray-400">{artesanos.total_activos || 0} artesanos</span>
               </div>
-              <div className="space-y-1 max-h-24 overflow-y-auto">
+              <div className="space-y-1 max-h-80 overflow-y-auto">
                 {artesanos.activos.map((a) => (
                   <div key={a.id} className="flex justify-between text-sm border-b border-gray-100 pb-1">
                     <span className="text-emerald-600">{a.codigo ? `${a.codigo} - ` : ""}{a.nombre}</span>
@@ -156,7 +156,7 @@ export default function Dashboard({ onNavigate }) {
                 <span className="text-sm font-semibold text-yellow-700">Ventas rezagadas</span>
                 <span className="text-xs text-gray-400">{artesanos.total_rezagados || 0} artesanos</span>
               </div>
-              <div className="space-y-1 max-h-20 overflow-y-auto">
+              <div className="space-y-1 max-h-80 overflow-y-auto">
                 {artesanos.rezagados.map((a) => (
                   <div key={a.id} className="text-sm border-b border-gray-100 pb-1">
                     <span className="text-yellow-600">{a.codigo ? `${a.codigo} - ` : ""}{a.nombre}</span>
@@ -170,7 +170,7 @@ export default function Dashboard({ onNavigate }) {
                 <span className="text-sm font-semibold text-gray-500">Inactivos</span>
                 <span className="text-xs text-gray-400">{artesanos.total_inactivos || 0} artesanos</span>
               </div>
-              <div className="space-y-1 max-h-20 overflow-y-auto">
+              <div className="space-y-1 max-h-80 overflow-y-auto">
                 {artesanos.inactivos.map((a) => (
                   <div key={a.id} className="text-sm border-b border-gray-100 pb-1">
                     <span className="text-gray-500">{a.codigo ? `${a.codigo} - ` : ""}{a.nombre}</span>
