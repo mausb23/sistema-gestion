@@ -370,7 +370,6 @@ export default function Ventas() {
                         Balancear
                       </button>
                     </div>
-                    </button>
                     <button onClick={registrarVenta} disabled={!items.length || pagos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0) !== total} className="w-full bg-green-600 text-white py-3 rounded-xl font-bold text-lg hover:bg-green-700 disabled:bg-gray-300">
                       {esUSD && totalUSD > 0 ? `Cobrar $${money(totalUSD)}` : `Cobrar ₡${money(total)}`}
                     </button>

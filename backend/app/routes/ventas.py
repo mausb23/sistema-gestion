@@ -71,9 +71,15 @@ def ventas_hoy(db: Session = Depends(get_db)):
                     monto = pago.get("monto", 0)
                     resumen_pagos[metodo] = resumen_pagos.get(metodo, 0) + monto
             except (json.JSONDecodeError, TypeError):
-                resumen_pagos[v.metodo_pago] = resumen_pagos.get(v.metodo_pago, 0) + v.total
+                key = v.metodo_pago
+                if key == "efectivo" and v.moneda == "USD":
+                    key = "efectivo_dolares"
+                resumen_pagos[key] = resumen_pagos.get(key, 0) + v.total
         else:
-            resumen_pagos[v.metodo_pago] = resumen_pagos.get(v.metodo_pago, 0) + v.total
+            key = v.metodo_pago
+            if key == "efectivo" and v.moneda == "USD":
+                key = "efectivo_dolares"
+            resumen_pagos[key] = resumen_pagos.get(key, 0) + v.total
 
     return {"ventas": ventas, "total": total, "cantidad": len(ventas), "resumen_pagos": resumen_pagos}
 
