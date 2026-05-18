@@ -20,6 +20,8 @@ export default function Liquidaciones() {
   const [ahorroPagoForm, setAhorroPagoForm] = useState({ artesano_id: "", monto: "" });
   const [tab, setTab] = useState("liquidaciones");
   const [formato, setFormato] = useState("ods");
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [msgMasivo, setMsgMasivo] = useState("");
 
   useEffect(() => {
     api.get("/artesanos?por_pagina=9999").then(r => setArtesanos(r.artesanos));
@@ -94,6 +96,42 @@ export default function Liquidaciones() {
 
       {data && tab === "liquidaciones" && (
         <>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={async () => {
+                setMsgMasivo("");
+                const pendientes = data.liquidaciones.filter(l => l.pendiente > 0);
+                if (!pendientes.length) { setMsgMasivo("Todos los artesanos están pagados"); return; }
+                const r = await api.post("/liquidaciones/pagar-todo?periodo=" + periodo);
+                if (r.error) { setMsgMasivo("Error: " + r.error); }
+                else {
+                  setMsgMasivo(r.pagados + " pago(s) registrado(s)" + (r.resultados?.some(x => x.email_enviado) ? " ✓ correos enviados" : ""));
+                  api.get("/liquidaciones/resumen?periodo=" + periodo).then(setData);
+                  api.get("/liquidaciones/pagos?periodo=" + periodo).then(setPagos);
+                  setSelectedIds([]);
+                }
+              }}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700"
+            >Pagar todo</button>
+            <button
+              onClick={async () => {
+                setMsgMasivo("");
+                if (!selectedIds.length) { setMsgMasivo("Seleccioná al menos un artesano"); return; }
+                const r = await api.post("/liquidaciones/pagar-masivo", { ids: selectedIds, periodo });
+                if (r.error) { setMsgMasivo("Error: " + r.error); }
+                else {
+                  setMsgMasivo(r.pagados + " pago(s) registrado(s)" + (r.resultados?.some(x => x.email_enviado) ? " ✓ correos enviados" : ""));
+                  api.get("/liquidaciones/resumen?periodo=" + periodo).then(setData);
+                  api.get("/liquidaciones/pagos?periodo=" + periodo).then(setPagos);
+                  setSelectedIds([]);
+                }
+              }}
+              className={"px-4 py-2 rounded-lg text-sm font-semibold " + (selectedIds.length ? "bg-green-600 text-white hover:bg-green-700" : "bg-gray-200 text-gray-400 cursor-default")}
+            >Pagar seleccionados (" + selectedIds.length + ")</button>
+          </div>
+          {msgMasivo && <span className={"text-sm " + (msgMasivo.startsWith("Error") ? "text-red-600" : "text-green-600")}>{msgMasivo}</span>}
+        </div>
         <div className="grid grid-cols-4 gap-4 mb-6">
           <div className="bg-white p-4 rounded-xl shadow">
             <p className="text-gray-500 text-sm">Total vendido</p>
@@ -135,6 +173,14 @@ export default function Liquidaciones() {
                 const art = artesanos.find((a) => a.id === l.artesano_id);
                 return (
                 <tr key={l.artesano_id} className="border-b">
+                  <td className="py-2">
+                    {l.pendiente > 0 && (
+                      <input type="checkbox" checked={selectedIds.includes(l.artesano_id)}
+                        onChange={() => setSelectedIds(selectedIds.includes(l.artesano_id) ? selectedIds.filter(id => id !== l.artesano_id) : [...selectedIds, l.artesano_id])}
+                        className="rounded"
+                      />
+                    )}
+                  </td>
                   <td className="py-2 font-medium">{l.artesano}</td>
                   <td className="py-2">₡{money(l.monto_vendido)}</td>
                   <td className="py-2 text-red-500">-₡{money(l.deduccion_venta)}</td>
@@ -170,7 +216,7 @@ export default function Liquidaciones() {
                 );
               })}
               {(!data?.liquidaciones || data.liquidaciones.length === 0) && (
-                <tr><td colSpan={9} className="py-4 text-center text-gray-400">Sin movimientos</td></tr>
+                <tr><td colSpan={10} className="py-4 text-center text-gray-400">Sin movimientos</td></tr>
               )}
             </tbody>
           </table>
@@ -273,7 +319,17 @@ export default function Liquidaciones() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-gray-500 border-b">
-                  <th className="pb-2">Artesano</th>
+                <th className="pb-2">
+                  <input type="checkbox"
+                    checked={data.liquidaciones.filter(l => l.pendiente > 0).length > 0 && selectedIds.length === data.liquidaciones.filter(l => l.pendiente > 0).length}
+                    onChange={() => {
+                      const pendientes = data.liquidaciones.filter(l => l.pendiente > 0).map(l => l.artesano_id);
+                      setSelectedIds(selectedIds.length === pendientes.length ? [] : pendientes);
+                    }}
+                    className="rounded"
+                  />
+                </th>
+                <th className="pb-2">Artesano</th>
                   <th className="pb-2">Comunidad</th>
                   <th className="pb-2">Ahorrado</th>
                   <th className="pb-2">Pagado</th>

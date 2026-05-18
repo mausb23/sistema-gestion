@@ -17,6 +17,8 @@ from app.models.producto import Producto
 from app.models.venta import Venta, VentaItem
 from app.models.pago_artesano import PagoArtesano
 from app.models.ahorro import AhorroArtesano
+from app.models.configuracion import Configuracion
+from app.services.email import enviar_email, html_pago_artesano
 
 router = APIRouter(prefix="/api/liquidaciones", tags=["liquidaciones"])
 
@@ -142,6 +144,11 @@ def listar_pagos(periodo: Optional[str] = None, db: Session = Depends(get_db)):
     return q.order_by(PagoArtesano.fecha_pago.desc()).all()
 
 
+class PagoMasivoCreate(BaseModel):
+    ids: list[int]
+    periodo: str
+
+
 @router.post("/pagos")
 def crear_pago(data: PagoCreate, db: Session = Depends(get_db)):
     p = PagoArtesano(**data.model_dump())
@@ -149,6 +156,107 @@ def crear_pago(data: PagoCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(p)
     return p
+
+
+@router.post("/pagar-masivo")
+def pagar_masivo(data: PagoMasivoCreate, db: Session = Depends(get_db)):
+    year, month = map(int, data.periodo.split("-"))
+    inicio = datetime(year, month, 1, 0, 0, 0)
+    fin = datetime(year + 1, 1, 1, 0, 0, 0) if month == 12 else datetime(year, month + 1, 1, 0, 0, 0)
+
+    negocio = db.query(Configuracion).filter(Configuracion.clave == "nombre_negocio").first()
+    nombre_negocio = negocio.valor if negocio else "Mi Negocio"
+
+    ventas = db.query(VentaItem).join(Venta).join(Producto).filter(
+        Venta.fecha >= inicio, Venta.fecha < fin, Venta.estado == "completada",
+    ).all()
+
+    ventas_por_artesano = {}
+    for item in ventas:
+        aid = item.producto.artesano_id
+        if not aid:
+            continue
+        if aid not in ventas_por_artesano:
+            ventas_por_artesano[aid] = {"vendido": 0}
+        ventas_por_artesano[aid]["vendido"] += item.subtotal
+
+    pagos_existentes = db.query(PagoArtesano).filter(
+        PagoArtesano.periodo == data.periodo,
+        PagoArtesano.artesano_id.in_(data.ids),
+    ).all()
+    ya_pagados = {p.artesano_id for p in pagos_existentes}
+
+    resultados = []
+    for aid in data.ids:
+        if aid in ya_pagados:
+            resultados.append({"artesano_id": aid, "ok": False, "error": "Ya tiene pago registrado en este período"})
+            continue
+        v = ventas_por_artesano.get(aid, {"vendido": 0})
+        vendido = round(v["vendido"], 2)
+        if vendido <= 0:
+            resultados.append({"artesano_id": aid, "ok": False, "error": "Sin ventas en el período"})
+            continue
+        deduccion = round(vendido * 0.05, 2)
+        neto = round(vendido - deduccion, 2)
+
+        ahorro_monto = round(vendido * 0.05, 2)
+        if ahorro_monto > 0:
+            existente = db.query(AhorroArtesano).filter(
+                AhorroArtesano.artesano_id == aid,
+                AhorroArtesano.periodo == data.periodo,
+            ).first()
+            if not existente:
+                db.add(AhorroArtesano(artesano_id=aid, periodo=data.periodo, monto_ahorrado=ahorro_monto))
+
+        p = PagoArtesano(artesano_id=aid, periodo=data.periodo, monto=neto)
+        db.add(p)
+        db.flush()
+
+        artesano = db.get(Artesano, aid)
+        email_enviado = False
+        if artesano and artesano.email:
+            html = html_pago_artesano(artesano.nombre, data.periodo, neto, nombre_negocio)
+            res = enviar_email(artesano.email, f"Pago registrado - {nombre_negocio}", html)
+            email_enviado = res.get("ok", False)
+
+        resultados.append({
+            "artesano_id": aid,
+            "artesano": artesano.nombre if artesano else f"#{aid}",
+            "monto": neto,
+            "ok": True,
+            "email_enviado": email_enviado,
+        })
+
+    db.commit()
+    return {"periodo": data.periodo, "pagados": len([r for r in resultados if r["ok"]]), "resultados": resultados}
+
+
+@router.post("/pagar-todo")
+def pagar_todo(periodo: str, db: Session = Depends(get_db)):
+    year, month = map(int, periodo.split("-"))
+    inicio = datetime(year, month, 1, 0, 0, 0)
+    fin = datetime(year + 1, 1, 1, 0, 0, 0) if month == 12 else datetime(year, month + 1, 1, 0, 0, 0)
+
+    ventas = db.query(VentaItem).join(Venta).join(Producto).filter(
+        Venta.fecha >= inicio, Venta.fecha < fin, Venta.estado == "completada",
+    ).all()
+
+    artesanos_con_ventas = set()
+    for item in ventas:
+        if item.producto.artesano_id:
+            artesanos_con_ventas.add(item.producto.artesano_id)
+
+    ya_pagados = {p.artesano_id for p in db.query(PagoArtesano).filter(
+        PagoArtesano.periodo == periodo,
+    ).all()}
+
+    pendientes = list(artesanos_con_ventas - ya_pagados)
+    if not pendientes:
+        return {"ok": True, "pagados": 0, "resultados": []}
+
+    # re-use pagar-masivo
+    req = PagoMasivoCreate(ids=pendientes, periodo=periodo)
+    return pagar_masivo(req, db)
 
 
 @router.delete("/pagos/{pago_id}")
