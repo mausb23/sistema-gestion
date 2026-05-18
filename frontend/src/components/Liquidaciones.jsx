@@ -138,7 +138,7 @@ export default function Liquidaciones() {
             <p className="text-2xl font-bold text-blue-600">₡{money(data.total_vendido)}</p>
           </div>
           <div className="bg-white p-4 rounded-xl shadow">
-            <p className="text-gray-500 text-sm">Neto a pagar (95%)</p>
+            <p className="text-gray-500 text-sm">Neto a pagar (90%)</p>
             <p className="text-2xl font-bold text-purple-600">₡{money(data.total_neto)}</p>
           </div>
           <div className="bg-white p-4 rounded-xl shadow">
