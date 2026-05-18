@@ -72,9 +72,13 @@ export default function Liquidaciones() {
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">Liquidaciones a Artesanos</h2>
         <div className="flex items-center gap-3">
-          <button onClick={() => cambiarMes(-1)} className="px-3 py-1 border rounded-lg hover:bg-gray-100">←</button>
-          <span className="font-semibold text-lg">{periodo}</span>
-          <button onClick={() => cambiarMes(1)} className="px-3 py-1 border rounded-lg hover:bg-gray-100">→</button>
+          {tab !== "ahorros" && (
+            <>
+              <button onClick={() => cambiarMes(-1)} className="px-3 py-1 border rounded-lg hover:bg-gray-100">←</button>
+              <span className="font-semibold text-lg">{periodo}</span>
+              <button onClick={() => cambiarMes(1)} className="px-3 py-1 border rounded-lg hover:bg-gray-100">→</button>
+            </>
+          )}
           <select
             value={formato}
             onChange={(e) => setFormato(e.target.value)}
