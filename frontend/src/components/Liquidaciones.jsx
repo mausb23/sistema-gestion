@@ -128,7 +128,7 @@ export default function Liquidaciones() {
                 }
               }}
               className={"px-4 py-2 rounded-lg text-sm font-semibold " + (selectedIds.length ? "bg-green-600 text-white hover:bg-green-700" : "bg-gray-200 text-gray-400 cursor-default")}
-            >Pagar seleccionados (" + selectedIds.length + ")</button>
+            >{"Pagar seleccionados (" + selectedIds.length + ")"}</button>
           </div>
           {msgMasivo && <span className={"text-sm " + (msgMasivo.startsWith("Error") ? "text-red-600" : "text-green-600")}>{msgMasivo}</span>}
         </div>
