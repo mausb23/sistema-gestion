@@ -16,7 +16,6 @@ class Producto(Base):
     costo = Column(Float, default=0)
     moneda = Column(String(10), default="CRC")
     stock = Column(Float, default=0)
-    stock_minimo = Column(Float, default=0)
     activo = Column(Integer, default=1, index=True)
 
     categoria = relationship("Categoria", lazy="selectin")

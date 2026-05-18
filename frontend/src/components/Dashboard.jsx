@@ -66,15 +66,32 @@ export default function Dashboard({ onNavigate }) {
           <h3 className="font-semibold mb-4">Métodos de pago hoy</h3>
           {pagosEntries.length > 0 ? (
             <div className="space-y-3">
-              <div className="flex h-6 rounded-full overflow-hidden">
-                {pagosEntries.map(([metodo, monto]) => (
-                  <div
-                    key={metodo}
-                    style={{ width: `${pct(monto)}%` }}
-                    className={`${coloresMetodo[metodo] || "bg-gray-400"} transition-all`}
-                    title={`${etiquetaMetodo(metodo)}: ₡${money(monto)}`}
-                  />
-                ))}
+              <div className="flex justify-center">
+                <svg width="140" height="140" viewBox="0 0 140 140">
+                  {(() => {
+                    const R = 55, CX = 70, CY = 70;
+                    const C = 2 * Math.PI * R;
+                    let offset = 0;
+                    return pagosEntries.map(([metodo, monto]) => {
+                      const seg = (monto / totalPagos) * C;
+                      const arr = `${seg} ${C - seg}`;
+                      const o = -offset;
+                      offset += seg;
+                      return (
+                        <circle
+                          key={metodo}
+                          r={R} cx={CX} cy={CY}
+                          fill="none"
+                          stroke={coloresMetodo[metodo] || "#9ca3af"}
+                          strokeWidth={25}
+                          strokeDasharray={arr}
+                          strokeDashoffset={o}
+                          transform={`rotate(-90 ${CX} ${CY})`}
+                        />
+                      );
+                    });
+                  })()}
+                </svg>
               </div>
               <div className="space-y-2">
                 {pagosEntries.map(([metodo, monto]) => (

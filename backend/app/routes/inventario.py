@@ -65,7 +65,7 @@ def stock_bajo(
 ):
     q = db.query(Producto).filter(
         Producto.activo == 1,
-        Producto.stock <= Producto.stock_minimo,
+        Producto.stock <= 0,
     )
     if busqueda:
         q = q.filter(

@@ -115,9 +115,6 @@ def resumen(db: Session = Depends(get_db)):
     ventas_ayer_monto, ventas_ayer_cant = ventas_entre(inicio_ayer, fin_ayer)
 
     total_productos = db.query(func.count(Producto.id)).filter(Producto.activo == 1).scalar()
-    stock_bajo = db.query(func.count(Producto.id)).filter(
-        Producto.activo == 1, Producto.stock <= Producto.stock_minimo
-    ).scalar()
 
     return {
         "ventas_hoy": ventas_hoy_monto,
@@ -125,7 +122,6 @@ def resumen(db: Session = Depends(get_db)):
         "ventas_ayer": ventas_ayer_monto,
         "ventas_ayer_cantidad": ventas_ayer_cant,
         "total_productos": total_productos or 0,
-        "stock_bajo": stock_bajo or 0,
     }
 
 

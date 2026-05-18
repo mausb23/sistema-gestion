@@ -113,7 +113,7 @@ export default function Inventario() {
                   <p className="font-medium">{p.nombre}</p>
                   <p className="text-xs text-gray-500">{p.codigo}</p>
                 </div>
-                <div className={`font-bold ${p.stock <= p.stock_minimo ? "text-red-600" : "text-green-600"}`}>
+                <div className="font-bold text-green-600">
                   {p.stock}
                 </div>
               </div>

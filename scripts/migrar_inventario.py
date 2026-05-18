@@ -118,7 +118,6 @@ def main():
             precio=precio_raw,
             costo=costo_raw,
             stock=stock_raw,
-            stock_minimo=0,
         )
         batch.append(p)
         codigos_existentes.add(codigo)

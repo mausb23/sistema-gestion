@@ -20,7 +20,6 @@ class ProductoCreate(BaseModel):
     costo: float = 0
     moneda: str = "CRC"
     stock: float = 0
-    stock_minimo: float = 0
 
 
 @router.get("")

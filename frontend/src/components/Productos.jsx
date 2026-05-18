@@ -11,7 +11,7 @@ export default function Productos() {
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editando, setEditando] = useState(null);
-  const [form, setForm] = useState({ codigo: "", nombre: "", descripcion: "", categoria_id: "", artesano_id: "", precio: "", costo: "", moneda: "CRC", stock: "", stock_minimo: "" });
+  const [form, setForm] = useState({ codigo: "", nombre: "", descripcion: "", categoria_id: "", artesano_id: "", precio: "", costo: "", moneda: "CRC", stock: "" });
   const debounceRef = useRef(null);
   const perPage = 50;
 
@@ -55,7 +55,7 @@ export default function Productos() {
   }
 
   async function guardar() {
-    const payload = { ...form, categoria_id: form.categoria_id ? parseInt(form.categoria_id) : null, artesano_id: form.artesano_id ? parseInt(form.artesano_id) : null, precio: parseFloat(form.precio) || 0, costo: parseFloat(form.costo) || 0, stock: parseFloat(form.stock) || 0, stock_minimo: parseFloat(form.stock_minimo) || 0 };
+    const payload = { ...form, categoria_id: form.categoria_id ? parseInt(form.categoria_id) : null, artesano_id: form.artesano_id ? parseInt(form.artesano_id) : null, precio: parseFloat(form.precio) || 0, costo: parseFloat(form.costo) || 0, stock: parseFloat(form.stock) || 0 };
     if (editando) {
       await api.put(`/productos/${editando.id}`, payload);
     } else {
@@ -67,13 +67,13 @@ export default function Productos() {
   }
 
   function editar(p) {
-    setForm({ codigo: p.codigo, nombre: p.nombre, descripcion: p.descripcion || "", categoria_id: p.categoria_id || "", artesano_id: p.artesano_id || "", precio: p.precio, costo: p.costo, moneda: p.moneda, stock: p.stock, stock_minimo: p.stock_minimo });
+    setForm({ codigo: p.codigo, nombre: p.nombre, descripcion: p.descripcion || "", categoria_id: p.categoria_id || "", artesano_id: p.artesano_id || "", precio: p.precio, costo: p.costo, moneda: p.moneda, stock: p.stock });
     setEditando(p);
     setShowForm(true);
   }
 
   function resetForm() {
-    setForm({ codigo: "", nombre: "", descripcion: "", categoria_id: "", artesano_id: "", precio: "", costo: "", moneda: "CRC", stock: "", stock_minimo: "" });
+    setForm({ codigo: "", nombre: "", descripcion: "", categoria_id: "", artesano_id: "", precio: "", costo: "", moneda: "CRC", stock: "" });
     setEditando(null);
   }
 
@@ -118,7 +118,7 @@ export default function Productos() {
               <input placeholder="Precio" type="number" step="0.01" value={form.precio} onChange={(e) => setForm({ ...form, precio: e.target.value })} className="p-2 border rounded-lg" />
               <input placeholder="Costo" type="number" step="0.01" value={form.costo} onChange={(e) => { const c = e.target.value; setForm({ ...form, costo: c, precio: calcularPrecio(c) || form.precio }); }} className="p-2 border rounded-lg" />
               <input placeholder="Stock" type="number" step="0.01" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className="p-2 border rounded-lg" />
-              <input placeholder="Stock mínimo" type="number" step="0.01" value={form.stock_minimo} onChange={(e) => setForm({ ...form, stock_minimo: e.target.value })} className="p-2 border rounded-lg" />
+
             </div>
             <div className="flex gap-3 mt-6">
               <button onClick={() => setShowForm(false)} className="flex-1 py-2 border rounded-xl">Cancelar</button>
@@ -151,7 +151,7 @@ export default function Productos() {
                 <td className="p-3">{p.artesano?.nombre || "-"}</td>
                 <td className="p-3 font-medium">₡{money(p.precio)}</td>
                 <td className="p-3 text-gray-500">₡{money(p.costo)}</td>
-                <td className={`p-3 font-medium ${p.stock <= p.stock_minimo ? "text-red-600" : ""}`}>{p.stock}</td>
+                <td className="p-3 font-medium">{p.stock}</td>
                 <td className="p-3">
                   <button onClick={() => editar(p)} className="text-blue-600 hover:underline mr-3">Editar</button>
                   <button onClick={() => eliminar(p.id)} className="text-red-600 hover:underline">Eliminar</button>
