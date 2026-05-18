@@ -5,12 +5,12 @@ import { money } from "../lib/format";
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [ventasHoy, setVentasHoy] = useState([]);
-  const [stockBajo, setStockBajo] = useState([]);
+  const [artesanos, setArtesanos] = useState({ activos: [], rezagados: [], inactivos: [] });
 
   useEffect(() => {
     api.get("/reportes/resumen").then(setData);
     api.get("/ventas/hoy").then((r) => setVentasHoy(r.ventas || []));
-    api.get("/inventario/stock-bajo?per_page=100").then((r) => setStockBajo(r.items || r || []));
+    api.get("/reportes/artesanos-estado").then(setArtesanos);
   }, []);
 
   return (
@@ -30,8 +30,8 @@ export default function Dashboard() {
           <p className="text-3xl font-bold text-green-600">{data?.total_productos || 0}</p>
         </div>
         <div className="bg-white p-6 rounded-xl shadow">
-          <p className="text-gray-500 text-sm">Stock bajo</p>
-          <p className="text-3xl font-bold text-red-600">{data?.stock_bajo || 0}</p>
+          <p className="text-gray-500 text-sm">Artesanos activos</p>
+          <p className="text-3xl font-bold text-emerald-600">{artesanos.total_activos || 0}</p>
         </div>
         <div className="bg-white p-6 rounded-xl shadow">
           <p className="text-gray-500 text-sm">Ventas hoy (cant.)</p>
@@ -70,23 +70,51 @@ export default function Dashboard() {
         </div>
 
         <div className="bg-white p-6 rounded-xl shadow">
-          <h3 className="font-semibold mb-4">Productos con stock bajo</h3>
-          <div className="space-y-3">
-            {stockBajo.map((p) => (
-              <div key={p.id} className="flex justify-between items-center border-b pb-2">
-                <div>
-                  <p className="font-medium">{p.nombre}</p>
-                  <p className="text-sm text-gray-500">Código: {p.codigo}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-red-600 font-bold">{p.stock}</p>
-                  <p className="text-xs text-gray-400">mín: {p.stock_minimo}</p>
-                </div>
+          <h3 className="font-semibold mb-4">Estado de artesanos</h3>
+          <div className="space-y-4">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-semibold text-emerald-700">Activos</span>
+                <span className="text-xs text-gray-400">{artesanos.total_activos || 0} artesanos</span>
               </div>
-            ))}
-            {stockBajo.length === 0 && (
-              <p className="text-gray-400 text-center py-4">Todo en orden</p>
-            )}
+              <div className="space-y-1 max-h-32 overflow-y-auto">
+                {artesanos.activos.map((a) => (
+                  <div key={a.id} className="flex justify-between text-sm border-b border-gray-100 pb-1">
+                    <span className="text-emerald-600">{a.codigo ? `${a.codigo} - ` : ""}{a.nombre}</span>
+                    <span className="text-gray-400 text-xs">stock: {a.total_stock}</span>
+                  </div>
+                ))}
+                {artesanos.activos.length === 0 && <p className="text-xs text-gray-400">Ninguno</p>}
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-semibold text-yellow-700">Ventas rezagadas</span>
+                <span className="text-xs text-gray-400">{artesanos.total_rezagados || 0} artesanos</span>
+              </div>
+              <div className="space-y-1 max-h-24 overflow-y-auto">
+                {artesanos.rezagados.map((a) => (
+                  <div key={a.id} className="text-sm border-b border-gray-100 pb-1">
+                    <span className="text-yellow-600">{a.codigo ? `${a.codigo} - ` : ""}{a.nombre}</span>
+                  </div>
+                ))}
+                {artesanos.rezagados.length === 0 && <p className="text-xs text-gray-400">Ninguno</p>}
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-semibold text-gray-500">Inactivos</span>
+                <span className="text-xs text-gray-400">{artesanos.total_inactivos || 0} artesanos</span>
+              </div>
+              <div className="space-y-1 max-h-24 overflow-y-auto">
+                {artesanos.inactivos.map((a) => (
+                  <div key={a.id} className="text-sm border-b border-gray-100 pb-1">
+                    <span className="text-gray-500">{a.codigo ? `${a.codigo} - ` : ""}{a.nombre}</span>
+                  </div>
+                ))}
+                {artesanos.inactivos.length === 0 && <p className="text-xs text-gray-400">Ninguno</p>}
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 from io import BytesIO
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -45,6 +45,47 @@ def productos_mas_vendidos(limite: int = 10, db: Session = Depends(get_db)):
         .all()
     )
     return [{"nombre": r.nombre, "cantidad": float(r.cantidad), "total": float(r.total)} for r in rows]
+
+
+@router.get("/artesanos-estado")
+def artesanos_estado(db: Session = Depends(get_db)):
+    hace_6m = datetime.now() - timedelta(days=180)
+
+    artesanos = db.query(Artesano).filter(Artesano.activo == True).all()
+
+    activos = []
+    rezagados = []
+    inactivos = []
+
+    for a in artesanos:
+        productos = db.query(Producto).filter(
+            Producto.artesano_id == a.id, Producto.activo == 1
+        ).all()
+
+        tiene_stock = any(p.stock > 0 for p in productos)
+        total_stock = sum(p.stock for p in productos)
+
+        venta_reciente = db.query(VentaItem).join(Producto).join(Venta).filter(
+            Producto.artesano_id == a.id,
+            Venta.fecha >= hace_6m,
+            Venta.estado == "completada",
+        ).first()
+
+        if venta_reciente and tiene_stock:
+            activos.append({"id": a.id, "codigo": a.codigo, "nombre": a.nombre, "total_stock": total_stock})
+        elif venta_reciente and not tiene_stock:
+            rezagados.append({"id": a.id, "codigo": a.codigo, "nombre": a.nombre})
+        else:
+            inactivos.append({"id": a.id, "codigo": a.codigo, "nombre": a.nombre})
+
+    return {
+        "activos": activos,
+        "rezagados": rezagados,
+        "inactivos": inactivos,
+        "total_activos": len(activos),
+        "total_rezagados": len(rezagados),
+        "total_inactivos": len(inactivos),
+    }
 
 
 @router.get("/resumen")
