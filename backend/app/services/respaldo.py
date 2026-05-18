@@ -120,6 +120,38 @@ def restaurar_respaldo(archivo: str) -> dict:
         return {"error": str(e)}
 
 
+def cargar_respaldo_desde_bytes(contenido: bytes) -> dict:
+    bdir = _backup_dir()
+    bdir.mkdir(parents=True, exist_ok=True)
+    db_path = BASE_DIR / "database.sqlite"
+    backup_path = db_path.with_suffix(".sqlite.backup")
+
+    ts = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    archivo_gz = bdir / f"backup_subido_{ts}.sqlite.gz"
+
+    try:
+        with gzip.open(archivo_gz, "wb") as f:
+            f.write(contenido)
+    except Exception:
+        archivo_gz = None
+
+    if db_path.exists():
+        shutil.copy2(db_path, backup_path)
+        logger.info("Respaldo previo guardado como %s", backup_path)
+
+    try:
+        data = gzip.decompress(contenido)
+        with open(db_path, "wb") as f:
+            f.write(data)
+        logger.info("Base reemplazada desde archivo subido")
+        return {"ok": True, "archivo": archivo_gz.name if archivo_gz else None}
+    except Exception as e:
+        if backup_path.exists():
+            shutil.copy2(backup_path, db_path)
+        logger.error("Error al cargar respaldo: %s", e)
+        return {"error": str(e)}
+
+
 def _limpiar(max_copias: int):
     bdir = _backup_dir()
     archivos = sorted(bdir.glob("backup_*.sqlite.gz"), reverse=True)

@@ -231,6 +231,23 @@ export default function Configuracion() {
               >
                 Crear respaldo ahora
               </button>
+              <label className="px-4 py-2 bg-gray-600 text-white rounded-lg text-sm font-semibold hover:bg-gray-700 self-end cursor-pointer">
+                Cargar respaldo
+                <input
+                  type="file" accept=".gz" className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setMsgBackup("");
+                    const form = new FormData();
+                    form.append("archivo", file);
+                    const r = await fetch("/api/backup/cargar", { method: "POST", body: form }).then(r => r.json());
+                    setMsgBackup(r.ok ? "Respaldo cargado ✓ — reiniciá el servidor" : "Error: " + (r.error || ""));
+                    api.get("/backup/listar").then(setBackupList);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
             </div>
             {msgBackup && (
               <p className={"text-sm mb-3 " + (msgBackup.includes("✓") ? "text-green-600" : "text-red-600")}>{msgBackup}</p>

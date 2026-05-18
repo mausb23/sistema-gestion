@@ -1,5 +1,5 @@
 import logging
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -10,6 +10,7 @@ from app.services.respaldo import (
     listar_respaldos,
     descargar_respaldo,
     restaurar_respaldo,
+    cargar_respaldo_desde_bytes,
 )
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,14 @@ def api_descargar(archivo: str):
 @router.post("/restaurar/{archivo}")
 def api_restaurar(archivo: str):
     return restaurar_respaldo(archivo)
+
+
+@router.post("/cargar")
+async def api_cargar(archivo: UploadFile):
+    if not archivo.filename or not archivo.filename.endswith(".gz"):
+        return {"error": "El archivo debe ser .gz (respaldo comprimido)"}
+    contenido = await archivo.read()
+    return cargar_respaldo_desde_bytes(contenido)
 
 
 @router.get("/config")
