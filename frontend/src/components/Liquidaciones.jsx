@@ -156,6 +156,16 @@ export default function Liquidaciones() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-gray-500 border-b">
+                <th className="pb-2">
+                  <input type="checkbox"
+                    checked={data?.liquidaciones?.filter(l => l.pendiente > 0).length > 0 && selectedIds.length === data?.liquidaciones?.filter(l => l.pendiente > 0).length}
+                    onChange={() => {
+                      const pendientes = (data?.liquidaciones || []).filter(l => l.pendiente > 0).map(l => l.artesano_id);
+                      setSelectedIds(selectedIds.length === pendientes.length ? [] : pendientes);
+                    }}
+                    className="rounded"
+                  />
+                </th>
                 <th className="pb-2">Artesano</th>
                 <th className="pb-2">Vendido</th>
                 <th className="pb-2 text-red-500">-1% Venta</th>
@@ -216,7 +226,7 @@ export default function Liquidaciones() {
                 );
               })}
               {(!data?.liquidaciones || data.liquidaciones.length === 0) && (
-                <tr><td colSpan={10} className="py-4 text-center text-gray-400">Sin movimientos</td></tr>
+                <tr><td colSpan={11} className="py-4 text-center text-gray-400">Sin movimientos</td></tr>
               )}
             </tbody>
           </table>
