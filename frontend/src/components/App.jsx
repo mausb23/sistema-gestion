@@ -60,7 +60,7 @@ export default function App() {
             </button>
           </div>
         </div>
-        <Section />
+        <Section onNavigate={setSection} />
       </main>
     </div>
   );

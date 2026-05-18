@@ -91,12 +91,21 @@ def artesanos_estado(db: Session = Depends(get_db)):
 @router.get("/resumen")
 def resumen(db: Session = Depends(get_db)):
     hoy = date.today()
-    inicio = datetime(hoy.year, hoy.month, hoy.day, 0, 0, 0)
-    fin = datetime(hoy.year, hoy.month, hoy.day, 23, 59, 59)
+    inicio_hoy = datetime(hoy.year, hoy.month, hoy.day, 0, 0, 0)
+    fin_hoy = datetime(hoy.year, hoy.month, hoy.day, 23, 59, 59)
 
-    ventas_hoy = db.query(func.sum(Venta.total), func.count(Venta.id)).filter(
-        Venta.fecha >= inicio, Venta.fecha <= fin, Venta.estado == "completada"
-    ).first()
+    ayer = hoy - timedelta(days=1)
+    inicio_ayer = datetime(ayer.year, ayer.month, ayer.day, 0, 0, 0)
+    fin_ayer = datetime(ayer.year, ayer.month, ayer.day, 23, 59, 59)
+
+    def ventas_entre(inicio, fin):
+        r = db.query(func.sum(Venta.total), func.count(Venta.id)).filter(
+            Venta.fecha >= inicio, Venta.fecha <= fin, Venta.estado == "completada"
+        ).first()
+        return float(r[0] or 0), r[1] or 0
+
+    ventas_hoy_monto, ventas_hoy_cant = ventas_entre(inicio_hoy, fin_hoy)
+    ventas_ayer_monto, ventas_ayer_cant = ventas_entre(inicio_ayer, fin_ayer)
 
     total_productos = db.query(func.count(Producto.id)).filter(Producto.activo == 1).scalar()
     stock_bajo = db.query(func.count(Producto.id)).filter(
@@ -104,8 +113,10 @@ def resumen(db: Session = Depends(get_db)):
     ).scalar()
 
     return {
-        "ventas_hoy": float(ventas_hoy[0] or 0),
-        "ventas_hoy_cantidad": ventas_hoy[1] or 0,
+        "ventas_hoy": ventas_hoy_monto,
+        "ventas_hoy_cantidad": ventas_hoy_cant,
+        "ventas_ayer": ventas_ayer_monto,
+        "ventas_ayer_cantidad": ventas_ayer_cant,
         "total_productos": total_productos or 0,
         "stock_bajo": stock_bajo or 0,
     }
