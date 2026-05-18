@@ -61,29 +61,29 @@ export default function Ventas() {
   async function buscarProductosPorTexto(texto) {
     if (!texto.trim()) return [];
     const res = await api.get(`/productos?busqueda=${encodeURIComponent(texto)}&per_page=20&solo_activos=true`);
-    return (res.items || []).filter((p) => p.stock > 0);
+    return res.items || [];
   }
 
   useEffect(() => { inputRef.current?.focus(); }, [showHistorial]);
 
   function agregarItem(p) {
-    if (p.stock <= 0) {
-      setErrorMsg("Producto sin stock");
-      setTimeout(() => setErrorMsg(""), 2000);
-      return;
-    }
     const existente = items.find((i) => i.producto_id === p.id);
     if (existente) {
+      const nuevaCant = existente.cantidad + 1;
       setItems(items.map((i) =>
         i.producto_id === p.id
-          ? { ...i, cantidad: i.cantidad + 1, subtotal: (i.cantidad + 1) * i.precio_unitario }
+          ? { ...i, cantidad: nuevaCant, subtotal: nuevaCant * i.precio_unitario, stock: p.stock }
           : i
       ));
     } else {
-      setItems([...items, { producto_id: p.id, nombre: p.nombre, codigo: p.codigo, cantidad: 1, precio_unitario: p.precio, subtotal: p.precio }]);
+      setItems([...items, { producto_id: p.id, nombre: p.nombre, codigo: p.codigo, cantidad: 1, precio_unitario: p.precio, subtotal: p.precio, stock: p.stock }]);
     }
     setUltimoProducto(p);
     setErrorMsg("");
+    if (p.stock <= 0) {
+      setErrorMsg("⚠ Sin stock registrado — se descontará en negativo");
+      setTimeout(() => setErrorMsg(""), 3000);
+    }
   }
 
   async function manejarCodigo(e) {
@@ -237,9 +237,9 @@ export default function Ventas() {
                 <input type="text" placeholder="Buscar por nombre o código..." value={busquedaTexto} onChange={(e) => setBusquedaTexto(e.target.value)} className="w-full p-3 border rounded-lg mb-4" autoFocus />
                 <div className="space-y-2">
                   {resultadosBusqueda.map((p) => (
-                    <button key={p.id} onClick={() => { agregarItem(p); setShowBusqueda(false); }} className="w-full text-left p-3 rounded-lg hover:bg-blue-50 border flex justify-between items-center">
+                    <button key={p.id} onClick={() => { agregarItem(p); setShowBusqueda(false); }} className={`w-full text-left p-3 rounded-lg hover:bg-blue-50 border flex justify-between items-center ${p.stock <= 0 ? "bg-orange-50" : ""}`}>
                       <div>
-                        <p className="font-medium">{p.nombre}</p>
+                        <p className="font-medium">{p.nombre} {p.stock <= 0 ? <span className="text-orange-500 text-xs font-bold">⚠ Sin stock</span> : ""}</p>
                         <p className="text-sm text-gray-500">{p.codigo} | Stock: {p.stock}</p>
                       </div>
                       <span className="font-bold text-blue-600">₡{money(p.precio)}</span>
@@ -254,11 +254,18 @@ export default function Ventas() {
           <div className="bg-white rounded-xl shadow p-4 mb-4">
             <h3 className="font-semibold mb-3">Venta actual ({items.length} items)</h3>
             <div className="space-y-2 mb-4 max-h-72 overflow-y-auto">
-              {items.map((i) => (
-                <div key={i.producto_id} className="flex items-center justify-between border-b pb-2">
+              {items.map((i) => {
+                const sinStock = i.stock <= 0;
+                const excedeStock = i.cantidad > i.stock;
+                const hayAlerta = sinStock || excedeStock;
+                return (
+                <div key={i.producto_id} className={`flex items-center justify-between border-b pb-2 ${hayAlerta ? "bg-orange-50 rounded-lg px-2" : ""}`}>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{i.nombre}</p>
-                    <p className="text-xs text-gray-500">{i.codigo} · ₡{money(i.precio_unitario)} c/u</p>
+                    <div className="flex items-center gap-1">
+                      {hayAlerta && <span className="text-orange-500 font-bold text-sm" title={sinStock ? "Sin stock registrado" : `Stock disponible: ${i.stock}`}>⚠</span>}
+                      <p className="font-medium text-sm truncate">{i.nombre}</p>
+                    </div>
+                    <p className="text-xs text-gray-500">{i.codigo} · ₡{money(i.precio_unitario)} c/u {hayAlerta && <span className="text-orange-600 font-medium">Stock: {i.stock}</span>}</p>
                   </div>
                   <div className="flex items-center gap-2 ml-3">
                     <button onClick={() => cambiarCantidad(i.producto_id, i.cantidad - 1)} className="w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 font-bold">-</button>
@@ -267,7 +274,8 @@ export default function Ventas() {
                     <span className="w-24 text-right font-medium">₡{money(i.subtotal)}</span>
                   </div>
                 </div>
-              ))}
+              );
+              })}
               {items.length === 0 && (
                 <p className="text-gray-400 text-center py-8 text-lg">
                   Escaneá un producto para comenzar
@@ -335,8 +343,23 @@ export default function Ventas() {
         </div>
       ) : (
         <div>
-          <div className="flex justify-end mb-3">
-            <a href="/api/ventas/exportar-excel" className="bg-green-600 text-white px-4 py-2 rounded-xl hover:bg-green-700 text-sm font-semibold">Descargar Excel</a>
+          <div className="flex justify-end gap-2 mb-3">
+            <select id="formato-ventas" className="px-3 py-1.5 border rounded-lg text-sm bg-white">
+              <option value="xlsx">Excel (.xlsx)</option>
+              <option value="ods">Calc (.ods)</option>
+            </select>
+            <button
+              onClick={() => {
+                const fmt = document.getElementById("formato-ventas").value;
+                const a = document.createElement("a");
+                a.href = `/api/ventas/exportar-excel?formato=${fmt}`;
+                a.download = `ventas.${fmt}`;
+                a.click();
+              }}
+              className="bg-green-600 text-white px-4 py-1.5 rounded-xl hover:bg-green-700 text-sm font-semibold"
+            >
+              Descargar
+            </button>
           </div>
           <div className="bg-white rounded-xl shadow overflow-x-auto">
             <table className="w-full text-sm">

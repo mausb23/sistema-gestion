@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from datetime import datetime, date
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -8,6 +9,7 @@ from fastapi.responses import StreamingResponse
 from io import BytesIO
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from pyexcel_ods3 import save_data as save_ods
 from app.database import get_db
 from app.models.venta import Venta, VentaItem
 from app.models.producto import Producto
@@ -108,7 +110,7 @@ def eliminar(venta_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/exportar-excel")
-def exportar_excel(fecha_desde: Optional[str] = None, fecha_hasta: Optional[str] = None, db: Session = Depends(get_db)):
+def exportar_excel(fecha_desde: Optional[str] = None, fecha_hasta: Optional[str] = None, formato: str = "xlsx", db: Session = Depends(get_db)):
     tc = db.query(Configuracion).filter(Configuracion.clave == "tipo_cambio_compra").first()
     tc_compra = float(tc.valor) if tc else 450
 
@@ -119,31 +121,10 @@ def exportar_excel(fecha_desde: Optional[str] = None, fecha_hasta: Optional[str]
         q = q.filter(Venta.fecha <= datetime.fromisoformat(fecha_hasta))
     ventas = q.all()
 
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Ventas"
-
     headers = ["Fecha", "Artículo", "Cantidad", "Costo Unitario", "Nombre Artesano",
                "Número Comunidad", "Monto Total", "Método de Pago", "Dólares recibidos", "Detalles y comentarios"]
 
-    bold = Font(bold=True, size=11)
-    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
-    header_font = Font(bold=True, color="FFFFFF", size=11)
-    thin_border = Border(
-        left=Side(style="thin"),
-        right=Side(style="thin"),
-        top=Side(style="thin"),
-        bottom=Side(style="thin"),
-    )
-
-    for col, h in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col, value=h)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = Alignment(horizontal="center")
-        cell.border = thin_border
-
-    fila = 2
+    rows = []
     for v in ventas:
         for item in v.items:
             p = item.producto
@@ -155,31 +136,62 @@ def exportar_excel(fecha_desde: Optional[str] = None, fecha_hasta: Optional[str]
             elif metodo == "sinpe":
                 metodo = "SINPE Móvil"
             dolares = round(item.subtotal / tc_compra, 2) if v.moneda == "USD" else ""
-            ws.cell(row=fila, column=1, value=v.fecha.strftime("%d/%m/%Y %H:%M")).border = thin_border
-            ws.cell(row=fila, column=2, value=p.nombre if p else "").border = thin_border
-            ws.cell(row=fila, column=3, value=item.cantidad).border = thin_border
-            ws.cell(row=fila, column=4, value=p.costo if p else 0).border = thin_border
-            ws.cell(row=fila, column=5, value=p.artesano.nombre if p and p.artesano else "").border = thin_border
-            ws.cell(row=fila, column=6, value=comunidad_numero).border = thin_border
-            ws.cell(row=fila, column=7, value=round(item.subtotal, 2)).border = thin_border
-            ws.cell(row=fila, column=8, value=metodo).border = thin_border
-            ws.cell(row=fila, column=9, value=dolares).border = thin_border
-            ws.cell(row=fila, column=10, value="").border = thin_border
-            fila += 1
+            rows.append([
+                v.fecha.strftime("%d/%m/%Y %H:%M"),
+                p.nombre if p else "",
+                item.cantidad,
+                p.costo if p else 0,
+                p.artesano.nombre if p and p.artesano else "",
+                comunidad_numero,
+                round(item.subtotal, 2),
+                metodo,
+                dolares,
+                "",
+            ])
 
-    ws.column_dimensions["A"].width = 18
-    ws.column_dimensions["B"].width = 30
-    ws.column_dimensions["C"].width = 10
-    ws.column_dimensions["D"].width = 15
-    ws.column_dimensions["E"].width = 25
-    ws.column_dimensions["F"].width = 25
-    ws.column_dimensions["G"].width = 15
-    ws.column_dimensions["H"].width = 20
-    ws.column_dimensions["I"].width = 18
-    ws.column_dimensions["J"].width = 25
+    if formato == "ods":
+        data = OrderedDict()
+        data["Ventas"] = [headers] + rows
+        buf = BytesIO()
+        save_ods(buf, data)
+        buf.seek(0)
+        return StreamingResponse(
+            buf,
+            media_type="application/vnd.oasis.opendocument.spreadsheet",
+            headers={"Content-Disposition": "attachment; filename=ventas.ods"},
+        )
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Ventas"
+
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+    thin_border = Border(
+        left=Side(style="thin"), right=Side(style="thin"),
+        top=Side(style="thin"), bottom=Side(style="thin"),
+    )
+
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center")
+        cell.border = thin_border
+
+    for i, row in enumerate(rows, 2):
+        for j, val in enumerate(row, 1):
+            ws.cell(row=i, column=j, value=val).border = thin_border
+
+    widths = [18, 30, 10, 15, 25, 25, 15, 20, 18, 25]
+    for i, w in enumerate(widths, 1):
+        ws.column_dimensions[chr(64 + i)].width = w
 
     buf = BytesIO()
     wb.save(buf)
     buf.seek(0)
-    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                             headers={"Content-Disposition": "attachment; filename=ventas.xlsx"})
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=ventas.xlsx"},
+    )
