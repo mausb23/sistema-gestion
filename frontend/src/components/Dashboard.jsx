@@ -28,7 +28,7 @@ export default function Dashboard({ onNavigate }) {
     sinpe: "bg-orange-500",
   };
   const etiquetaMetodo = (m) =>
-    ({ efectivo: "Efectivo", efectivo_dolares: "USD", sinpe: "SINPE", tarjeta: "Tarjeta" }[m] || m);
+    ({ efectivo: "Colones", efectivo_dolares: "Dólares", sinpe: "SINPE", tarjeta: "Tarjeta" }[m] || m);
 
   return (
     <div>
@@ -112,7 +112,7 @@ export default function Dashboard({ onNavigate }) {
                     <td className="py-2">{new Date(v.fecha).toLocaleTimeString()}</td>
                     <td className="py-2">{v.usuario?.nombre || "-"}</td>
                     <td className="py-2 font-medium">₡{money(v.total)}</td>
-                    <td className="py-2 capitalize">{v.metodo_pago === "efectivo_dolares" ? "Efectivo Dólares" : v.metodo_pago === "sinpe" ? "SINPE Móvil" : v.metodo_pago}</td>
+                    <td className="py-2 capitalize">{v.metodo_pago === "efectivo_dolares" ? "Dólares" : v.metodo_pago === "efectivo" ? "Colones" : v.metodo_pago === "sinpe" ? "SINPE Móvil" : v.metodo_pago}</td>
                   </tr>
                 ))}
                 {ventasHoy.length === 0 && (

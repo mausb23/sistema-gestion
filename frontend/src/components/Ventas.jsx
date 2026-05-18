@@ -565,7 +565,7 @@ export default function Ventas() {
                     <td className="p-3">{v.usuario?.nombre || "-"}</td>
                     <td className="p-3">{v.items?.length || 0}</td>
                     <td className="p-3 font-medium">₡{money(v.total)}</td>
-                    <td className="p-3 capitalize">{v.metodo_pago === "efectivo_dolares" ? "Efectivo Dólares" : v.metodo_pago === "sinpe" ? "SINPE Móvil" : v.metodo_pago}</td>
+                    <td className="p-3 capitalize">{v.metodo_pago === "efectivo_dolares" ? "Dólares" : v.metodo_pago === "efectivo" ? "Colones" : v.metodo_pago === "sinpe" ? "SINPE Móvil" : v.metodo_pago}</td>
                     <td className="p-3"><span className={`px-2 py-1 rounded-full text-xs ${v.estado === "completada" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{v.estado}</span></td>
                   </tr>
                 ))}
