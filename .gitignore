@@ -9,6 +9,11 @@ build/
 # Database
 *.sqlite
 *.sqlite3
+*.sqlite-shm
+*.sqlite-wal
+
+# Backups
+respaldos/
 
 # Build artifacts
 Versiones/*.AppImage
