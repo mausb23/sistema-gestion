@@ -25,9 +25,11 @@ from app.routes import (
     liquidaciones,
     comunidades,
     notificaciones,
+    backup,
 )
 from app.services.tipo_cambio import obtener_tipo_cambio
 from app.models.configuracion import Configuracion
+from app.services.respaldo import crear_respaldo
 
 
 def guardar_tipo_cambio(tc: dict):
@@ -58,6 +60,24 @@ def scrapeo_periodico():
         except Exception:
             logger.warning("Fallo al scrapear tipo de cambio", exc_info=True)
         time.sleep(7200)
+
+
+def respaldo_periodico():
+    from app.database import SessionLocal as _DB
+    from app.models.configuracion import Configuracion as _Cfg
+    while True:
+        try:
+            db = _DB()
+            c = db.query(_Cfg).filter(_Cfg.clave == "backup_interval_horas").first()
+            interval = max(1, int(c.valor)) if c and c.valor else 4
+            db.close()
+        except Exception:
+            interval = 4
+        try:
+            crear_respaldo()
+        except Exception:
+            logger.warning("Fallo respaldo programado", exc_info=True)
+        time.sleep(interval * 3600)
 
 
 def seed_comunidades():
@@ -143,6 +163,12 @@ async def lifespan(app: FastAPI):
         logger.warning("No se pudo obtener tipo de cambio al iniciar")
     hilo = threading.Thread(target=scrapeo_periodico, daemon=True)
     hilo.start()
+    hilo_r = threading.Thread(target=respaldo_periodico, daemon=True)
+    hilo_r.start()
+    try:
+        crear_respaldo()
+    except Exception:
+        logger.warning("No se pudo crear respaldo inicial")
     if STATIC_DIR.exists() and any(STATIC_DIR.iterdir()):
         app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
     yield
@@ -171,6 +197,7 @@ app.include_router(artesanos.router)
 app.include_router(liquidaciones.router)
 app.include_router(comunidades.router)
 app.include_router(notificaciones.router)
+app.include_router(backup.router)
 
 
 @app.get("/api/health")

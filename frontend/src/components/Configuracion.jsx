@@ -11,6 +11,9 @@ export default function Configuracion() {
   const [editConfig, setEditConfig] = useState({});
   const [impresorasDetectadas, setImpresorasDetectadas] = useState([]);
   const [msgImpresora, setMsgImpresora] = useState("");
+  const [backupList, setBackupList] = useState([]);
+  const [backupCfg, setBackupCfg] = useState({ intervalo_horas: 4, max_copias: 30 });
+  const [msgBackup, setMsgBackup] = useState("");
 
   const usuario = store.getUsuario();
 
@@ -18,6 +21,8 @@ export default function Configuracion() {
     api.get("/config").then((c) => { setConfig(c); setEditConfig(c); });
     api.get("/usuarios").then(setUsuarios);
     api.get("/categorias").then(setCategorias);
+    api.get("/backup/listar").then(setBackupList);
+    api.get("/backup/config").then(setBackupCfg);
   }, []);
 
   async function guardarConfig(clave, valor) {
@@ -188,12 +193,83 @@ export default function Configuracion() {
             >
               Probar impresión
             </button>
-            {msgImpresora && (
-              <p className={`text-sm ${msgImpresora.includes("✓") ? "text-green-600" : "text-red-600"}`}>{msgImpresora}</p>
-            )}
+              {msgImpresora && (
+                <p className={"text-sm " + (msgImpresora.includes("✓") ? "text-green-600" : "text-red-600")}>{msgImpresora}</p>
+              )}
+            </div>
           </div>
+
+          <div className="bg-white p-6 rounded-xl shadow">
+            <h3 className="font-semibold mb-4">Respaldos</h3>
+            <p className="text-sm text-gray-500 mb-4">La base de datos se respalda automáticamente cada cierto tiempo. Podés descargar o restaurar respaldos anteriores.</p>
+
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              <div>
+                <label className="block text-xs text-gray-500">Respaldar cada (horas)</label>
+                <input type="number" min="1" value={backupCfg.intervalo_horas}
+                  onChange={(e) => setBackupCfg({ ...backupCfg, intervalo_horas: parseInt(e.target.value) || 4 })}
+                  onBlur={() => api.put("/backup/config", backupCfg)}
+                  className="w-20 p-1.5 border rounded text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500">Máx. copias</label>
+                <input type="number" min="1" max="200" value={backupCfg.max_copias}
+                  onChange={(e) => setBackupCfg({ ...backupCfg, max_copias: parseInt(e.target.value) || 30 })}
+                  onBlur={() => api.put("/backup/config", backupCfg)}
+                  className="w-20 p-1.5 border rounded text-sm"
+                />
+              </div>
+              <button
+                onClick={async () => {
+                  setMsgBackup("");
+                  const r = await api.post("/backup/crear");
+                  setMsgBackup(r.error ? "Error: " + r.error : "Respaldo creado ✓ (" + (r.archivo || "") + ")");
+                  api.get("/backup/listar").then(setBackupList);
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 self-end"
+              >
+                Crear respaldo ahora
+              </button>
+            </div>
+            {msgBackup && (
+              <p className={"text-sm mb-3 " + (msgBackup.includes("✓") ? "text-green-600" : "text-red-600")}>{msgBackup}</p>
+            )}
+
+            {backupList.length > 0 ? (
+              <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-2">
+                <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-gray-500 px-2 pb-1 border-b">
+                  <span className="col-span-4">Archivo</span>
+                  <span className="col-span-3">Fecha</span>
+                  <span className="col-span-2">Tamaño</span>
+                  <span className="col-span-3"></span>
+                </div>
+                {backupList.map((b) => (
+                  <div key={b.archivo} className="grid grid-cols-12 gap-2 items-center text-sm px-2 py-1.5 hover:bg-gray-50 rounded">
+                    <span className="col-span-4 truncate font-mono text-xs">{b.archivo}</span>
+                    <span className="col-span-3 text-xs text-gray-500">{new Date(b.fecha).toLocaleString()}</span>
+                    <span className="col-span-2 text-xs text-gray-500">{(b.tamano / 1024).toFixed(0)} KB</span>
+                    <span className="col-span-3 flex gap-2">
+                      <a href={"/api/backup/descargar/" + b.archivo} download className="text-blue-600 hover:underline text-xs">Descargar</a>
+                      <button
+                        onClick={async () => {
+                          if (!confirm("¿Restaurar este respaldo? Se perderán los datos actuales.")) return;
+                          const r = await api.post("/backup/restaurar/" + b.archivo);
+                          alert(r.ok ? "Base restaurada ✓ - reinicie el servidor" : "Error: " + (r.error || ""));
+                        }}
+                        className="text-red-600 hover:underline text-xs"
+                      >
+                        Restaurar
+                      </button>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400 text-center py-4">Sin respaldos aún</p>
+            )}
         </div>
       </div>
-    </div>  
+    </div>
   );
 }
