@@ -577,7 +577,7 @@ export default function Ventas() {
                 {ventas.map((v) => (
                   <Fragment key={v.id}>
                   <tr className="border-t hover:bg-gray-50 cursor-pointer" onClick={() => setVentaExpandida(ventaExpandida === v.id ? null : v.id)}>
-                    <td className="p-3 font-mono">{ventaExpandida === v.id ? "▼" : "▶"} {v.id}</td>
+                    <td className="p-3 font-mono">{ventaExpandida === v.id ? "▾" : "▸"} {v.id}</td>
                     <td className="p-3">{new Date(v.fecha).toLocaleString()}</td>
                     <td className="p-3">{v.usuario?.nombre || "-"}</td>
                     <td className="p-3">{v.items?.length || 0}</td>

@@ -118,7 +118,7 @@ export default function Dashboard({ onNavigate }) {
                 {ventasHoy.slice(0, 30).map((v) => (
                   <Fragment key={v.id}>
                   <tr className="border-b border-gray-100 cursor-pointer" onClick={() => setVentaExpandida(ventaExpandida === v.id ? null : v.id)}>
-                    <td className="py-2">{ventaExpandida === v.id ? "▼" : "▶"} {new Date(v.fecha).toLocaleTimeString()}</td>
+                    <td className="py-2">{ventaExpandida === v.id ? "▾" : "▸"} {new Date(v.fecha).toLocaleTimeString()}</td>
                     <td className="py-2">{v.usuario?.nombre || "-"}</td>
                     <td className="py-2 font-medium">₡{money(v.total)}</td>
                     <td className="py-2">{etiquetaMetodoPago(v.metodo_pago)}</td>
