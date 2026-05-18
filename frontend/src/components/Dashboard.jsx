@@ -5,11 +5,12 @@ import { money } from "../lib/format";
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [ventasHoy, setVentasHoy] = useState([]);
+  const [resumenPagos, setResumenPagos] = useState({});
   const [artesanos, setArtesanos] = useState({ activos: [], rezagados: [], inactivos: [] });
 
   useEffect(() => {
     api.get("/reportes/resumen").then(setData);
-    api.get("/ventas/hoy").then((r) => setVentasHoy(r.ventas || []));
+    api.get("/ventas/hoy").then((r) => { setVentasHoy(r.ventas || []); setResumenPagos(r.resumen_pagos || {}); });
     api.get("/reportes/artesanos-estado").then(setArtesanos);
   }, []);
 
@@ -24,6 +25,20 @@ export default function Dashboard() {
             ₡{money(data ? data.ventas_hoy : 0)}
           </p>
           <p className="text-sm text-gray-400">{data?.ventas_hoy_cantidad || 0} ventas</p>
+          {Object.keys(resumenPagos).length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-3 pt-3 border-t">
+              {Object.entries(resumenPagos).map(([metodo, monto]) => {
+                const label = metodo.includes("+")
+                  ? metodo.split("+").map(m => ({ efectivo: "Efectivo", efectivo_dolares: "USD", sinpe: "SINPE", tarjeta: "Tarjeta" }[m] || m)).join("+")
+                  : ({ efectivo: "Efectivo", efectivo_dolares: "USD", sinpe: "SINPE", tarjeta: "Tarjeta" }[metodo] || metodo);
+                return (
+                <span key={metodo} className="text-xs bg-blue-50 px-2 py-0.5 rounded-full text-blue-700">
+                  {label}: ₡{money(monto)}
+                </span>
+                );
+              })}
+            </div>
+          )}
         </div>
         <div className="bg-white p-6 rounded-xl shadow">
           <p className="text-gray-500 text-sm">Productos activos</p>

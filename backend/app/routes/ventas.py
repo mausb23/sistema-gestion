@@ -1,3 +1,4 @@
+import json
 from collections import OrderedDict
 from datetime import datetime, date
 from fastapi import APIRouter, Depends
@@ -25,11 +26,17 @@ class ItemInput(BaseModel):
     precio_unitario: float
 
 
+class PagoInput(BaseModel):
+    metodo: str
+    monto: float
+
+
 class VentaCreate(BaseModel):
     usuario_id: int
     cliente_id: Optional[int] = None
     moneda: str = "CRC"
     metodo_pago: str = "efectivo"
+    pagos: List[PagoInput] = []
     items: List[ItemInput]
 
 
@@ -51,18 +58,43 @@ def ventas_hoy(db: Session = Depends(get_db)):
     q = db.query(Venta).filter(Venta.fecha >= inicio, Venta.fecha <= fin)
     ventas = q.order_by(Venta.fecha.desc()).all()
     total = sum(v.total for v in ventas)
-    return {"ventas": ventas, "total": total, "cantidad": len(ventas)}
+
+    resumen_pagos = {}
+    for v in ventas:
+        if v.estado != "completada":
+            continue
+        if v.pagos_detalle:
+            try:
+                pagos = json.loads(v.pagos_detalle)
+                for pago in pagos:
+                    metodo = pago.get("metodo", v.metodo_pago)
+                    monto = pago.get("monto", 0)
+                    resumen_pagos[metodo] = resumen_pagos.get(metodo, 0) + monto
+            except (json.JSONDecodeError, TypeError):
+                resumen_pagos[v.metodo_pago] = resumen_pagos.get(v.metodo_pago, 0) + v.total
+        else:
+            resumen_pagos[v.metodo_pago] = resumen_pagos.get(v.metodo_pago, 0) + v.total
+
+    return {"ventas": ventas, "total": total, "cantidad": len(ventas), "resumen_pagos": resumen_pagos}
 
 
 @router.post("")
 def crear(data: VentaCreate, db: Session = Depends(get_db)):
     total = sum(item.cantidad * item.precio_unitario for item in data.items)
+    pagos_detalle = None
+    metodo_pago = data.metodo_pago
+    if data.pagos:
+        pagos_detalle = json.dumps([p.model_dump() for p in data.pagos])
+        metodos = "+".join(sorted(set(p.metodo for p in data.pagos)))
+        metodo_pago = metodos
+
     venta = Venta(
         usuario_id=data.usuario_id,
         cliente_id=data.cliente_id,
         moneda=data.moneda,
-        metodo_pago=data.metodo_pago,
+        metodo_pago=metodo_pago,
         total=total,
+        pagos_detalle=pagos_detalle,
     )
     db.add(venta)
     db.flush()

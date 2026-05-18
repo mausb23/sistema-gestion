@@ -29,6 +29,8 @@ export default function Ventas() {
   const [mensajeEnvio, setMensajeEnvio] = useState("");
   const [resultadosBusqueda, setResultadosBusqueda] = useState([]);
   const debounceRef2 = useRef(null);
+  const [splitPago, setSplitPago] = useState(false);
+  const [pagos, setPagos] = useState([{ metodo: "efectivo", monto: "" }]);
 
   const usuario = store.getUsuario();
 
@@ -107,11 +109,15 @@ export default function Ventas() {
 
   async function registrarVenta() {
     if (!items.length || !usuario) return;
+    const pagosData = splitPago
+      ? pagos.filter((p) => parseFloat(p.monto) > 0).map((p) => ({ metodo: p.metodo, monto: parseFloat(p.monto) }))
+      : [{ metodo: metodoPago, monto: total }];
     const venta = await api.post("/ventas", {
       usuario_id: usuario.id,
       cliente_id: clienteId,
       items: items.map((i) => ({ producto_id: i.producto_id, cantidad: i.cantidad, precio_unitario: i.precio_unitario })),
-      metodo_pago: metodoPago,
+      metodo_pago: splitPago ? pagosData[0]?.metodo || metodoPago : metodoPago,
+      pagos: pagosData,
       moneda: esUSD ? "USD" : "CRC",
     });
     const total = items.reduce((s, i) => s + i.subtotal, 0);
@@ -283,27 +289,103 @@ export default function Ventas() {
               )}
             </div>
 
-            <div className="border-t pt-4">
-              <div className="flex justify-between items-center mb-2">
-                <span className="font-bold text-lg">Total:</span>
-                <span className="font-bold text-2xl text-blue-600">₡{money(total)}</span>
-              </div>
-              {esUSD && tipoCambio && (
-                <div className="flex justify-between items-center mb-4 text-sm text-gray-500">
-                  <span>TC compra: ₡{money(tipoCambio)}</span>
-                  <span className="font-semibold text-blue-500">≈ ${money(totalUSD)} USD</span>
+              <div className="border-t pt-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-bold text-lg">Total:</span>
+                  <span className="font-bold text-2xl text-blue-600">₡{money(total)}</span>
                 </div>
-              )}
-              <select value={metodoPago} onChange={(e) => setMetodoPago(e.target.value)} className="w-full p-2 border rounded-lg mb-3">
-                <option value="efectivo">Efectivo colones</option>
-                <option value="efectivo_dolares">Efectivo Dólares</option>
-                <option value="tarjeta">Tarjeta</option>
-                <option value="sinpe">SINPE Móvil</option>
-              </select>
-              <button onClick={registrarVenta} disabled={!items.length} className="w-full bg-green-600 text-white py-3 rounded-xl font-bold text-lg hover:bg-green-700 disabled:bg-gray-300">
-                {esUSD && totalUSD > 0 ? `Cobrar $${money(totalUSD)}` : `Cobrar ₡${money(total)}`}
-              </button>
-            </div>
+                {esUSD && tipoCambio && (
+                  <div className="flex justify-between items-center mb-4 text-sm text-gray-500">
+                    <span>TC compra: ₡{money(tipoCambio)}</span>
+                    <span className="font-semibold text-blue-500">≈ ${money(totalUSD)} USD</span>
+                  </div>
+                )}
+
+                {!splitPago ? (
+                  <>
+                    <select value={metodoPago} onChange={(e) => setMetodoPago(e.target.value)} className="w-full p-2 border rounded-lg mb-3">
+                      <option value="efectivo">Efectivo colones</option>
+                      <option value="efectivo_dolares">Efectivo Dólares</option>
+                      <option value="tarjeta">Tarjeta</option>
+                      <option value="sinpe">SINPE Móvil</option>
+                    </select>
+                    <button onClick={registrarVenta} disabled={!items.length} className="w-full bg-green-600 text-white py-3 rounded-xl font-bold text-lg hover:bg-green-700 disabled:bg-gray-300 mb-2">
+                      {esUSD && totalUSD > 0 ? `Cobrar $${money(totalUSD)}` : `Cobrar ₡${money(total)}`}
+                    </button>
+                  </>
+                ) : (
+                  <div className="mb-3 space-y-2">
+                    <p className="text-sm font-semibold text-gray-600">Dividir pago:</p>
+                    {pagos.map((p, idx) => (
+                      <div key={idx} className="flex gap-2 items-center">
+                        <select
+                          value={p.metodo}
+                          onChange={(e) => {
+                            const nuevos = [...pagos];
+                            nuevos[idx] = { ...nuevos[idx], metodo: e.target.value };
+                            setPagos(nuevos);
+                          }}
+                          className="flex-1 p-2 border rounded-lg text-sm"
+                        >
+                          <option value="efectivo">Efectivo colones</option>
+                          <option value="efectivo_dolares">Efectivo Dólares</option>
+                          <option value="tarjeta">Tarjeta</option>
+                          <option value="sinpe">SINPE Móvil</option>
+                        </select>
+                        <input
+                          type="number" step="0.01" placeholder="Monto"
+                          value={p.monto}
+                          onChange={(e) => {
+                            const nuevos = [...pagos];
+                            nuevos[idx] = { ...nuevos[idx], monto: e.target.value };
+                            setPagos(nuevos);
+                          }}
+                          className="w-28 p-2 border rounded-lg text-sm"
+                        />
+                        {pagos.length > 1 && (
+                          <button onClick={() => setPagos(pagos.filter((_, i) => i !== idx))} className="text-red-500 text-sm font-bold px-2">✕</button>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => setPagos([...pagos, { metodo: "efectivo", monto: "" }])}
+                      className="text-blue-600 text-sm hover:underline"
+                    >
+                      + Agregar método
+                    </button>
+                    <button
+                      onClick={() => {
+                        const suma = pagos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
+                        if (suma !== total) {
+                          const diff = total - suma;
+                          const ultimo = pagos.length - 1;
+                          const nuevos = [...pagos];
+                          nuevos[ultimo] = { ...nuevos[ultimo], monto: (parseFloat(nuevos[ultimo].monto) || 0) + diff > 0 ? ((parseFloat(nuevos[ultimo].monto) || 0) + diff).toFixed(2) : "0" };
+                          setPagos(nuevos);
+                        }
+                      }}
+                      className="text-xs text-gray-500 hover:underline mt-1"
+                    >
+                      Balancear montos
+                    </button>
+                    <button onClick={registrarVenta} disabled={!items.length || pagos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0) !== total} className="w-full bg-green-600 text-white py-3 rounded-xl font-bold text-lg hover:bg-green-700 disabled:bg-gray-300">
+                      {esUSD && totalUSD > 0 ? `Cobrar $${money(totalUSD)}` : `Cobrar ₡${money(total)}`}
+                    </button>
+                  </div>
+                )}
+
+                <button
+                  onClick={() => {
+                    if (!splitPago) {
+                      setPagos([{ metodo: "efectivo", monto: total.toFixed(2) }]);
+                    }
+                    setSplitPago(!splitPago);
+                  }}
+                  className="w-full text-xs text-gray-500 hover:text-blue-600 py-1"
+                >
+                  {splitPago ? "← Pago único" : "Dividir pago"}
+                </button>
+              </div>
           </div>
 
           {ventaCompletada && (

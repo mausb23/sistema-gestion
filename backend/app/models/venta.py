@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -14,6 +14,7 @@ class Venta(Base):
     total = Column(Float, default=0)
     moneda = Column(String(10), default="CRC")
     metodo_pago = Column(String(50), default="efectivo")
+    pagos_detalle = Column(Text, nullable=True)
     estado = Column(String(20), default="completada")
 
     usuario = relationship("Usuario", lazy="joined")

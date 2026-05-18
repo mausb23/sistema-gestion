@@ -115,6 +115,13 @@ def seed_comunidades():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    try:
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("ALTER TABLE ventas ADD COLUMN pagos_detalle TEXT"))
+            conn.commit()
+    except Exception:
+        pass
     seed_comunidades()
     try:
         tc = obtener_tipo_cambio()
