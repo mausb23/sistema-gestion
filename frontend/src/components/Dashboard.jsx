@@ -27,6 +27,12 @@ export default function Dashboard({ onNavigate }) {
     tarjeta: "bg-purple-500",
     sinpe: "bg-orange-500",
   };
+  const coloresCss = {
+    efectivo: "#3b82f6",
+    efectivo_dolares: "#10b981",
+    tarjeta: "#a855f7",
+    sinpe: "#f97316",
+  };
   const etiquetaMetodo = etiquetaMetodoPago;
 
   return (
@@ -73,7 +79,7 @@ export default function Dashboard({ onNavigate }) {
                     background: `conic-gradient(${pagosEntries.map(([metodo, monto], i) => {
                       const p = (monto / totalPagos) * 100;
                       const start = pagosEntries.slice(0, i).reduce((s, [, m]) => s + (m / totalPagos) * 100, 0);
-                      return `${coloresMetodo[metodo] || "#9ca3af"} ${start}% ${start + p}%`;
+                      return `${coloresCss[metodo] || "#9ca3af"} ${start}% ${start + p}%`;
                     }).join(", ")})`,
                   }}
                 />
