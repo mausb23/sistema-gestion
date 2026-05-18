@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from pydantic import BaseModel
 from typing import Optional
 from app.database import get_db
@@ -17,11 +18,20 @@ class ArtesanoCreate(BaseModel):
 
 
 @router.get("")
-def listar(busqueda: str = "", db: Session = Depends(get_db)):
+def listar(busqueda: str = "", pagina: int = 1, por_pagina: int = 120, db: Session = Depends(get_db)):
     q = db.query(Artesano).filter(Artesano.activo == True)
     if busqueda:
-        q = q.filter(Artesano.nombre.ilike(f"%{busqueda}%"))
-    return q.order_by(Artesano.nombre).all()
+        filtro = f"%{busqueda}%"
+        q = q.filter(or_(Artesano.nombre.ilike(filtro), Artesano.codigo.ilike(filtro)))
+    total = q.count()
+    artesanos = q.order_by(Artesano.nombre).offset((pagina - 1) * por_pagina).limit(por_pagina).all()
+    return {
+        "artesanos": artesanos,
+        "total": total,
+        "pagina": pagina,
+        "por_pagina": por_pagina,
+        "paginas": max(1, (total + por_pagina - 1) // por_pagina),
+    }
 
 
 @router.post("")

@@ -19,9 +19,10 @@ export default function Liquidaciones() {
   const [pagoForm, setPagoForm] = useState({ artesano_id: "", monto: "" });
   const [ahorroPagoForm, setAhorroPagoForm] = useState({ artesano_id: "", monto: "" });
   const [tab, setTab] = useState("liquidaciones");
+  const [formato, setFormato] = useState("xlsx");
 
   useEffect(() => {
-    api.get("/artesanos").then(setArtesanos);
+    api.get("/artesanos?por_pagina=9999").then(r => setArtesanos(r.artesanos));
   }, []);
 
   useEffect(() => {
@@ -64,6 +65,25 @@ export default function Liquidaciones() {
           <button onClick={() => cambiarMes(-1)} className="px-3 py-1 border rounded-lg hover:bg-gray-100">←</button>
           <span className="font-semibold text-lg">{periodo}</span>
           <button onClick={() => cambiarMes(1)} className="px-3 py-1 border rounded-lg hover:bg-gray-100">→</button>
+          <select
+            value={formato}
+            onChange={(e) => setFormato(e.target.value)}
+            className="ml-4 px-3 py-1.5 border rounded-lg text-sm bg-white"
+          >
+            <option value="xlsx">Excel (.xlsx)</option>
+            <option value="ods">Calc (.ods)</option>
+          </select>
+          <button
+            onClick={() => {
+              const a = document.createElement("a");
+              a.href = `/api/liquidaciones/exportar-excel?periodo=${periodo}&formato=${formato}`;
+              a.download = `liquidaciones_${periodo}.${formato}`;
+              a.click();
+            }}
+            className="px-4 py-1.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700"
+          >
+            Descargar
+          </button>
         </div>
       </div>
 

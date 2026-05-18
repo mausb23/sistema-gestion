@@ -9,11 +9,24 @@ export default function Artesanos() {
   const [form, setForm] = useState({ codigo: "", nombre: "", telefono: "", email: "", comunidad_id: "" });
   const [sortCampo, setSortCampo] = useState("codigo");
   const [sortDir, setSortDir] = useState("asc");
+  const [busqueda, setBusqueda] = useState("");
+  const [pagina, setPagina] = useState(1);
+  const [paginas, setPaginas] = useState(1);
+  const [total, setTotal] = useState(0);
 
-  useEffect(() => { cargar(); }, []);
+  useEffect(() => { cargar(); cargarComunidades(); }, []);
+  useEffect(() => { cargar(); }, [busqueda, pagina]);
 
   async function cargar() {
-    setArtesanos(await api.get("/artesanos"));
+    const params = new URLSearchParams({ busqueda, pagina, por_pagina: 120 });
+    const res = await api.get(`/artesanos?${params}`);
+    setArtesanos(res.artesanos);
+    setTotal(res.total);
+    setPagina(res.pagina);
+    setPaginas(res.paginas);
+  }
+
+  async function cargarComunidades() {
     setComunidades(await api.get("/comunidades"));
   }
 
@@ -52,6 +65,11 @@ export default function Artesanos() {
     else { setSortCampo(campo); setSortDir("asc"); }
   }
 
+  function handleBusqueda(e) {
+    setBusqueda(e.target.value);
+    setPagina(1);
+  }
+
   const ordenados = [...artesanos].sort((a, b) => {
     const va = ((sortCampo === "codigo" ? a.codigo : a.nombre) || "").toString().toLowerCase();
     const vb = ((sortCampo === "codigo" ? b.codigo : b.nombre) || "").toString().toLowerCase();
@@ -62,7 +80,20 @@ export default function Artesanos() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">Artesanos</h2>
-        <button onClick={() => { resetForm(); setShowForm(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700">+ Nuevo</button>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-500">{total} artesanos</span>
+          <button onClick={() => { resetForm(); setShowForm(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700">+ Nuevo</button>
+        </div>
+      </div>
+
+      <div className="mb-4">
+        <input
+          type="text"
+          placeholder="Buscar por código o nombre..."
+          value={busqueda}
+          onChange={handleBusqueda}
+          className="w-full max-w-md p-2 border rounded-lg"
+        />
       </div>
 
       {showForm && (
@@ -118,6 +149,34 @@ export default function Artesanos() {
           </tbody>
         </table>
       </div>
+
+      {paginas > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-4">
+          <button
+            onClick={() => setPagina(Math.max(1, pagina - 1))}
+            disabled={pagina === 1}
+            className="px-3 py-1 border rounded-lg text-sm disabled:opacity-40 hover:bg-gray-100"
+          >
+            ←
+          </button>
+          {Array.from({ length: paginas }, (_, i) => i + 1).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPagina(p)}
+              className={`px-3 py-1 border rounded-lg text-sm ${p === pagina ? "bg-blue-600 text-white" : "hover:bg-gray-100"}`}
+            >
+              {p}
+            </button>
+          ))}
+          <button
+            onClick={() => setPagina(Math.min(paginas, pagina + 1))}
+            disabled={pagina === paginas}
+            className="px-3 py-1 border rounded-lg text-sm disabled:opacity-40 hover:bg-gray-100"
+          >
+            →
+          </button>
+        </div>
+      )}
     </div>
   );
 }

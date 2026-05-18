@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from pydantic import BaseModel
 from typing import Optional
 from app.database import get_db
 from app.models.producto import Producto
+from app.models.artesano import Artesano
 
 router = APIRouter(prefix="/api/productos", tags=["productos"])
 
@@ -36,9 +38,13 @@ def listar(
     if categoria_id:
         q = q.filter(Producto.categoria_id == categoria_id)
     if busqueda:
+        filtro = f"%{busqueda}%"
         q = q.filter(
-            Producto.nombre.ilike(f"%{busqueda}%")
-            | Producto.codigo.ilike(f"%{busqueda}%")
+            or_(
+                Producto.nombre.ilike(filtro),
+                Producto.codigo.ilike(filtro),
+                Producto.artesano.has(Artesano.nombre.ilike(filtro)),
+            )
         )
     total = q.count()
     items = q.order_by(Producto.nombre).offset((page - 1) * per_page).limit(per_page).all()

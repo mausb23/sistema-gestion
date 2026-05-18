@@ -32,11 +32,31 @@ Sistema de gestión de ventas para pequeños negocios artesanales en Costa Rica.
 
 ### Backend
 
+En sistemas como Arch Linux, pip está bloqueado para instalación global (PEP 668). Se recomienda usar un **entorno virtual** que aísla las dependencias del sistema:
+
 ```bash
-cd backend
-pip install -r requirements.txt
-python run.py
+# Crear el entorno virtual (solo la primera vez)
+python3 -m venv .venv
+
+# Activar según tu shell:
+source .venv/bin/activate        # bash/zsh
+source .venv/bin/activate.fish    # fish
+
+# Instalar dependencias
+pip install -r backend/requirements.txt
+
+# Ejecutar el servidor
+python backend/run.py
 ```
+
+Sin activar el virtualenv, podés usar las rutas directamente:
+
+```bash
+.venv/bin/pip install -r backend/requirements.txt
+.venv/bin/python backend/run.py
+```
+
+Al activar el virtualenv, `python` y `pip` apuntan a los del entorno aislado. Para salir: `deactivate`.
 
 Inicia el servidor en `http://localhost:8000`. Al arrancar, scrapea el tipo de cambio del BCCR y lo actualiza cada 2 horas.
 

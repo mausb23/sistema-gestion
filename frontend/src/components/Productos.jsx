@@ -27,7 +27,7 @@ export default function Productos() {
 
   useEffect(() => {
     setCategorias(api.get("/categorias"));
-    setArtesanos(api.get("/artesanos"));
+    api.get("/artesanos?por_pagina=9999").then(r => setArtesanos(r.artesanos));
   }, []);
 
   useEffect(() => {

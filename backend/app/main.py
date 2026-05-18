@@ -28,30 +28,6 @@ from app.routes import (
 from app.services.tipo_cambio import obtener_tipo_cambio
 from app.models.configuracion import Configuracion
 
-app = FastAPI(title="Gestión de Ventas", docs_url=None, redoc_url=None, lifespan=lifespan)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-app.include_router(usuarios.router)
-app.include_router(categorias.router)
-app.include_router(productos.router)
-app.include_router(clientes.router)
-app.include_router(ventas.router)
-app.include_router(inventario.router)
-app.include_router(caja.router)
-app.include_router(reportes.router)
-app.include_router(config.router)
-app.include_router(artesanos.router)
-app.include_router(liquidaciones.router)
-app.include_router(comunidades.router)
-app.include_router(notificaciones.router)
-
 
 def guardar_tipo_cambio(tc: dict):
     db = SessionLocal()
@@ -153,6 +129,31 @@ async def lifespan(app: FastAPI):
     yield
 
 
+app = FastAPI(title="Gestión de Ventas", docs_url=None, redoc_url=None, lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(usuarios.router)
+app.include_router(categorias.router)
+app.include_router(productos.router)
+app.include_router(clientes.router)
+app.include_router(ventas.router)
+app.include_router(inventario.router)
+app.include_router(caja.router)
+app.include_router(reportes.router)
+app.include_router(config.router)
+app.include_router(artesanos.router)
+app.include_router(liquidaciones.router)
+app.include_router(comunidades.router)
+app.include_router(notificaciones.router)
+
+
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
@@ -178,7 +179,7 @@ def main():
         import webview
         webview.create_window("Gestión de Ventas", f"http://localhost:{PORT}", width=1200, height=800, resizable=True)
         webview.start()
-    except ImportError:
+    except (ImportError, webview.errors.WebViewException):
         import webbrowser
         webbrowser.open(f"http://localhost:{PORT}")
         hilo.join()

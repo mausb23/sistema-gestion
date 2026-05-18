@@ -1,9 +1,15 @@
+from io import BytesIO
+from collections import OrderedDict
 from datetime import datetime
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from pydantic import BaseModel
 from typing import Optional
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from pyexcel_ods3 import save_data as save_ods
 from app.database import get_db
 from app.models.artesano import Artesano
 from app.models.producto import Producto
@@ -174,6 +180,145 @@ def historial_ahorros(artesano_id: int = None, db: Session = Depends(get_db)):
     if artesano_id:
         q = q.filter(AhorroArtesano.artesano_id == artesano_id)
     return q.order_by(AhorroArtesano.periodo.desc()).all()
+
+
+@router.get("/exportar-excel")
+def exportar_excel(periodo: Optional[str] = None, formato: str = "xlsx", db: Session = Depends(get_db)):
+    if not periodo:
+        hoy = datetime.now()
+        periodo = f"{hoy.year}-{hoy.month:02d}"
+
+    year, month = map(int, periodo.split("-"))
+    inicio = datetime(year, month, 1, 0, 0, 0)
+    if month == 12:
+        fin = datetime(year + 1, 1, 1, 0, 0, 0)
+    else:
+        fin = datetime(year, month + 1, 1, 0, 0, 0)
+
+    ventas = (
+        db.query(VentaItem)
+        .join(Venta)
+        .join(Producto)
+        .filter(Venta.fecha >= inicio, Venta.fecha < fin, Venta.estado == "completada")
+        .all()
+    )
+
+    ventas_por_artesano = {}
+    for item in ventas:
+        artesano_id = item.producto.artesano_id
+        if not artesano_id:
+            continue
+        if artesano_id not in ventas_por_artesano:
+            ventas_por_artesano[artesano_id] = {"vendido": 0}
+        ventas_por_artesano[artesano_id]["vendido"] += item.subtotal
+
+    pagos = (
+        db.query(
+            PagoArtesano.artesano_id,
+            func.sum(PagoArtesano.monto).label("total_pagado"),
+        )
+        .filter(PagoArtesano.periodo == periodo)
+        .group_by(PagoArtesano.artesano_id)
+        .all()
+    )
+    pagos_dict = {p.artesano_id: float(p.total_pagado) for p in pagos}
+
+    ahorros = db.query(
+        AhorroArtesano.artesano_id,
+        func.sum(AhorroArtesano.monto_ahorrado).label("total_ahorrado"),
+    ).filter(AhorroArtesano.periodo == periodo).group_by(AhorroArtesano.artesano_id).all()
+    ahorros_dict = {a.artesano_id: float(a.total_ahorrado) for a in ahorros}
+
+    artesanos = db.query(Artesano).filter(Artesano.activo == True).all()
+
+    headers = [
+        "Código", "Artesano", "Comunidad", "Teléfono",
+        "Vendido", "-1% Venta", "-2% Renta", "-2% Tienda",
+        "Neto (95%)", "Ya Pagado", "Pendiente", "Ahorro (5%)",
+    ]
+
+    rows = []
+    total_vendido = total_neto = total_pagado = total_pendiente = total_ahorro = 0
+
+    for a in artesanos:
+        v = ventas_por_artesano.get(a.id, {"vendido": 0})
+        vendido = round(v["vendido"], 2)
+        if vendido == 0 and a.id not in pagos_dict:
+            continue
+        deduccion_venta = round(vendido * 0.01, 2)
+        deduccion_renta = round(vendido * 0.02, 2)
+        deduccion_tienda = round(vendido * 0.02, 2)
+        neto = round(vendido - deduccion_venta - deduccion_renta - deduccion_tienda, 2)
+        pagado = round(pagos_dict.get(a.id, 0), 2)
+        pendiente = round(neto - pagado, 2)
+        ahorro = round(ahorros_dict.get(a.id, 0), 2)
+        comunidad = a.comunidad.nombre if a.comunidad else ""
+        rows.append([a.codigo or "", a.nombre, comunidad, a.telefono or "",
+                     vendido, deduccion_venta, deduccion_renta, deduccion_tienda,
+                     neto, pagado, pendiente, ahorro])
+        total_vendido += vendido
+        total_neto += neto
+        total_pagado += pagado
+        total_pendiente += pendiente
+        total_ahorro += ahorro
+
+    total_row = ["TOTALES", "", "", "", round(total_vendido, 2), "", "", "",
+                 round(total_neto, 2), round(total_pagado, 2), round(total_pendiente, 2), round(total_ahorro, 2)]
+
+    if formato == "ods":
+        data = OrderedDict()
+        data[f"Liquidaciones {periodo}"] = [headers] + rows + [total_row]
+        buf = BytesIO()
+        save_ods(buf, data)
+        buf.seek(0)
+        return StreamingResponse(
+            buf,
+            media_type="application/vnd.oasis.opendocument.spreadsheet",
+            headers={"Content-Disposition": f"attachment; filename=liquidaciones_{periodo}.ods"},
+        )
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = f"Liquidaciones {periodo}"
+
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+    thin_border = Border(
+        left=Side(style="thin"), right=Side(style="thin"),
+        top=Side(style="thin"), bottom=Side(style="thin"),
+    )
+
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center")
+        cell.border = thin_border
+
+    for i, row in enumerate(rows, 2):
+        for j, val in enumerate(row, 1):
+            c = ws.cell(row=i, column=j, value=val)
+            c.border = thin_border
+
+    fila = len(rows) + 2
+    bold_font = Font(bold=True, size=11)
+    for j, val in enumerate(total_row, 1):
+        c = ws.cell(row=fila, column=j, value=val)
+        c.font = bold_font if j in (1, 5, 9, 10, 11, 12) else Font()
+        c.border = thin_border
+
+    widths = [12, 25, 20, 14, 14, 12, 12, 12, 14, 14, 14, 14]
+    for i, w in enumerate(widths, 1):
+        ws.column_dimensions[chr(64 + i)].width = w
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=liquidaciones_{periodo}.xlsx"},
+    )
 
 
 @router.get("/historial")
