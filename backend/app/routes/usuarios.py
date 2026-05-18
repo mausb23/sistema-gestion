@@ -23,7 +23,7 @@ class UsuarioOut(BaseModel):
 
 @router.get("")
 def listar_usuarios(db: Session = Depends(get_db)):
-    return db.query(Usuario).all()
+    return db.query(Usuario).filter(Usuario.activo == True).all()
 
 
 @router.post("")

@@ -37,7 +37,8 @@ export default function Ventas() {
   }, []);
 
   async function cargarDatos() {
-    setVentas(await api.get("/ventas"));
+    const res = await api.get("/ventas");
+    setVentas(res.items || res || []);
     const [cfg, cs] = await Promise.all([
       api.get("/config"),
       api.get("/clientes"),
