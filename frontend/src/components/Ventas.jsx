@@ -154,6 +154,7 @@ export default function Ventas() {
 
   const total = items.reduce((s, i) => s + i.subtotal, 0);
   const totalUSD = tipoCambio ? total / tipoCambio : 0;
+  const totalUSDCobro = Math.ceil(totalUSD);
   const [splitPago, setSplitPago] = useState(false);
   const [pagos, setPagos] = useState([{ metodo: "efectivo", monto: "" }]);
 
@@ -354,7 +355,7 @@ export default function Ventas() {
                             {(() => {
                               const recibido = parseFloat(montoRecibido);
                               const esUSD = metodoPago === "efectivo_dolares" && tipoCambio;
-                              const totalPago = esUSD ? totalUSD : total;
+                              const totalPago = esUSD ? totalUSDCobro : total;
                               const diff = recibido - totalPago;
                               const falta = diff < 0;
                               return (
@@ -370,8 +371,8 @@ export default function Ventas() {
                         )}
                       </div>
                     )}
-                    <button onClick={registrarVenta} disabled={!items.length || (esMetodoEfectivo(metodoPago) && montoRecibido && parseFloat(montoRecibido) > 0 && parseFloat(montoRecibido) < (esUSD ? totalUSD : total))} className="w-full bg-green-600 text-white py-3 rounded-xl font-bold text-lg hover:bg-green-700 disabled:bg-gray-300 mb-2">
-                      {esUSD && totalUSD > 0 ? `Cobrar $${money(totalUSD)}` : `Cobrar ₡${money(total)}`}
+                    <button onClick={registrarVenta} disabled={!items.length || (esMetodoEfectivo(metodoPago) && montoRecibido && parseFloat(montoRecibido) > 0 && parseFloat(montoRecibido) < (esUSD ? totalUSDCobro : total))} className="w-full bg-green-600 text-white py-3 rounded-xl font-bold text-lg hover:bg-green-700 disabled:bg-gray-300 mb-2">
+                      {esUSD && totalUSD > 0 ? `Cobrar $${money(totalUSDCobro)}` : `Cobrar ₡${money(total)}`}
                     </button>
                   </>
                 ) : (
