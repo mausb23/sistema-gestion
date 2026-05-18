@@ -92,7 +92,7 @@ export default function Caja() {
   const [apUserIds, setApUserIds] = useState([]);
   const [crUserIds, setCrUserIds] = useState([]);
   const [comentariosCierre, setComentariosCierre] = useState("");
-  const [formatoExport, setFormatoExport] = useState("xlsx");
+  const [formatoExport, setFormatoExport] = useState("ods");
   const [emailEnvio, setEmailEnvio] = useState("");
 
   useEffect(() => {
@@ -358,8 +358,8 @@ export default function Caja() {
           <h3 className="font-semibold">Historial de cierres</h3>
           <div className="flex items-center gap-2">
             <select value={formatoExport} onChange={(e) => setFormatoExport(e.target.value)} className="px-2 py-1 border rounded text-sm bg-white">
+              <option value="ods">Calc (ODS)</option>
               <option value="xlsx">Excel</option>
-              <option value="ods">Calc</option>
             </select>
             <input
               type="email" placeholder="Correo para envío"

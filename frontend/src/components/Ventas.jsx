@@ -551,8 +551,8 @@ export default function Ventas() {
         <div>
           <div className="flex justify-end gap-2 mb-3">
             <select id="formato-ventas" className="px-3 py-1.5 border rounded-lg text-sm bg-white">
-              <option value="xlsx">Excel (.xlsx)</option>
               <option value="ods">Calc (.ods)</option>
+              <option value="xlsx">Excel (.xlsx)</option>
             </select>
             <button
               onClick={() => {

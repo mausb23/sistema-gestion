@@ -19,7 +19,7 @@ export default function Liquidaciones() {
   const [pagoForm, setPagoForm] = useState({ artesano_id: "", monto: "" });
   const [ahorroPagoForm, setAhorroPagoForm] = useState({ artesano_id: "", monto: "" });
   const [tab, setTab] = useState("liquidaciones");
-  const [formato, setFormato] = useState("xlsx");
+  const [formato, setFormato] = useState("ods");
 
   useEffect(() => {
     api.get("/artesanos?por_pagina=9999").then(r => setArtesanos(r.artesanos));
@@ -70,8 +70,8 @@ export default function Liquidaciones() {
             onChange={(e) => setFormato(e.target.value)}
             className="ml-4 px-3 py-1.5 border rounded-lg text-sm bg-white"
           >
-            <option value="xlsx">Excel (.xlsx)</option>
             <option value="ods">Calc (.ods)</option>
+            <option value="xlsx">Excel (.xlsx)</option>
           </select>
           <button
             onClick={() => {
