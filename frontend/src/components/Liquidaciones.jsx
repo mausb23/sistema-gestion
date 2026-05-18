@@ -272,8 +272,18 @@ export default function Liquidaciones() {
                   <p className="font-medium">{p.artesano?.nombre || "-"}</p>
                   <p className="text-xs text-gray-500">{new Date(p.fecha_pago).toLocaleString()}</p>
                 </div>
-                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2">
                   <span className="font-bold text-green-600">₡{money(p.monto)}</span>
+                  <button
+                    onClick={async () => {
+                      if (!confirm("¿Eliminar este pago?")) return;
+                      await api.delete("/liquidaciones/pagos/" + p.id);
+                      api.get("/liquidaciones/resumen?periodo=" + periodo).then(setData);
+                      api.get("/liquidaciones/pagos?periodo=" + periodo).then(setPagos);
+                    }}
+                    className="text-red-500 hover:text-red-700 text-xs px-1"
+                    title="Eliminar pago"
+                  >✕</button>
                   <button
                     onClick={() => abrirWhatsApp(p.artesano?.telefono, `Hola ${p.artesano?.nombre || ""}, le informamos que se ha registrado un pago de ₡${money(p.monto)} correspondiente al período ${p.periodo}. Gracias por su trabajo.`)}
                     className="text-green-600 hover:text-green-800 text-xs font-semibold px-2 py-1 rounded border border-green-300 hover:bg-green-50"
