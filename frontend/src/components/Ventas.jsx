@@ -347,26 +347,29 @@ export default function Ventas() {
                         )}
                       </div>
                     ))}
-                    <button
-                      onClick={() => setPagos([...pagos, { metodo: "efectivo", monto: "" }])}
-                      className="text-blue-600 text-sm hover:underline"
-                    >
-                      + Agregar método
-                    </button>
-                    <button
-                      onClick={() => {
-                        const suma = pagos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
-                        if (suma !== total) {
-                          const diff = total - suma;
-                          const ultimo = pagos.length - 1;
-                          const nuevos = [...pagos];
-                          nuevos[ultimo] = { ...nuevos[ultimo], monto: (parseFloat(nuevos[ultimo].monto) || 0) + diff > 0 ? ((parseFloat(nuevos[ultimo].monto) || 0) + diff).toFixed(2) : "0" };
-                          setPagos(nuevos);
-                        }
-                      }}
-                      className="text-xs text-gray-500 hover:underline mt-1"
-                    >
-                      Balancear montos
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={() => setPagos([...pagos, { metodo: "efectivo", monto: "" }])}
+                        className="flex-1 border border-blue-300 text-blue-600 px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-blue-50"
+                      >
+                        + Agregar método
+                      </button>
+                      <button
+                        onClick={() => {
+                          const suma = pagos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
+                          if (suma !== total) {
+                            const diff = total - suma;
+                            const ultimo = pagos.length - 1;
+                            const nuevos = [...pagos];
+                            nuevos[ultimo] = { ...nuevos[ultimo], monto: (parseFloat(nuevos[ultimo].monto) || 0) + diff > 0 ? ((parseFloat(nuevos[ultimo].monto) || 0) + diff).toFixed(2) : "0" };
+                            setPagos(nuevos);
+                          }
+                        }}
+                        className="border border-gray-300 text-gray-600 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50"
+                      >
+                        Balancear
+                      </button>
+                    </div>
                     </button>
                     <button onClick={registrarVenta} disabled={!items.length || pagos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0) !== total} className="w-full bg-green-600 text-white py-3 rounded-xl font-bold text-lg hover:bg-green-700 disabled:bg-gray-300">
                       {esUSD && totalUSD > 0 ? `Cobrar $${money(totalUSD)}` : `Cobrar ₡${money(total)}`}
@@ -374,17 +377,25 @@ export default function Ventas() {
                   </div>
                 )}
 
-                <button
-                  onClick={() => {
-                    if (!splitPago) {
+                {!splitPago && (
+                  <button
+                    onClick={() => {
                       setPagos([{ metodo: "efectivo", monto: total.toFixed(2) }]);
-                    }
-                    setSplitPago(!splitPago);
-                  }}
-                  className="w-full text-xs text-gray-500 hover:text-blue-600 py-1"
-                >
-                  {splitPago ? "← Pago único" : "Dividir pago"}
-                </button>
+                      setSplitPago(true);
+                    }}
+                    className="w-full mt-2 py-2 border-2 border-dashed border-blue-400 text-blue-600 rounded-xl text-sm font-semibold hover:bg-blue-50 hover:border-blue-500"
+                  >
+                    + Dividir pago
+                  </button>
+                )}
+                {splitPago && (
+                  <button
+                    onClick={() => setSplitPago(false)}
+                    className="w-full mt-2 py-2 border border-gray-300 text-gray-500 rounded-xl text-sm hover:bg-gray-50"
+                  >
+                    ← Pago único
+                  </button>
+                )}
               </div>
           </div>
 
