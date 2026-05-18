@@ -168,10 +168,9 @@ export default function Liquidaciones() {
                 </th>
                 <th className="pb-2">Artesano</th>
                 <th className="pb-2">Vendido</th>
-                <th className="pb-2 text-red-500">-1% Venta</th>
-                <th className="pb-2 text-red-500">-2% Renta</th>
-                <th className="pb-2 text-red-500">-2% Tienda</th>
-                <th className="pb-2">Neto</th>
+                <th className="pb-2 text-red-500">-5% Comisiones</th>
+                <th className="pb-2 text-yellow-600">-5% Ahorro</th>
+                <th className="pb-2">Neto (90%)</th>
                 <th className="pb-2">Pagado</th>
                 <th className="pb-2">Pendiente</th>
                 <th className="pb-2"></th>
@@ -193,9 +192,8 @@ export default function Liquidaciones() {
                   </td>
                   <td className="py-2 font-medium">{l.artesano}</td>
                   <td className="py-2">₡{money(l.monto_vendido)}</td>
-                  <td className="py-2 text-red-500">-₡{money(l.deduccion_venta)}</td>
-                  <td className="py-2 text-red-500">-₡{money(l.deduccion_renta)}</td>
-                  <td className="py-2 text-red-500">-₡{money(l.deduccion_tienda)}</td>
+                  <td className="py-2 text-red-500">-₡{money(l.deduccion_comisiones)}</td>
+                  <td className="py-2 text-yellow-600">-₡{money(l.ahorro)}</td>
                   <td className="py-2 font-medium text-purple-600">₡{money(l.neto)}</td>
                   <td className="py-2 text-green-600">₡{money(l.monto_pagado)}</td>
                   <td className={`py-2 font-medium ${l.pendiente > 0 ? "text-red-600" : "text-green-600"}`}>
@@ -291,19 +289,15 @@ export default function Liquidaciones() {
           <p className="text-sm text-gray-600 mb-4">Porcentajes aplicados sobre el total vendido:</p>
           <div className="space-y-3">
             <div className="flex justify-between items-center border-b pb-2">
-              <span>Venta (1%)</span>
-              <span className="text-red-500">-₡{money(data?.total_vendido ? data.total_vendido * 0.01 : 0)}</span>
+              <span>Comisiones y renta (5%)</span>
+              <span className="text-red-500">-₡{money(data?.total_vendido ? data.total_vendido * 0.05 : 0)}</span>
             </div>
             <div className="flex justify-between items-center border-b pb-2">
-              <span>Impuesto de renta (2%)</span>
-              <span className="text-red-500">-₡{money(data?.total_vendido ? data.total_vendido * 0.02 : 0)}</span>
-            </div>
-            <div className="flex justify-between items-center border-b pb-2">
-              <span>Tienda (2%)</span>
-              <span className="text-red-500">-₡{money(data?.total_vendido ? data.total_vendido * 0.02 : 0)}</span>
+              <span>Ahorro (5%)</span>
+              <span className="text-yellow-600">-₡{money(data?.total_vendido ? data.total_vendido * 0.05 : 0)}</span>
             </div>
             <div className="flex justify-between items-center pt-2 font-bold">
-              <span>Neto total (95%)</span>
+              <span>Neto total (90%)</span>
               <span className="text-purple-600">₡{money(data?.total_neto || 0)}</span>
             </div>
           </div>
