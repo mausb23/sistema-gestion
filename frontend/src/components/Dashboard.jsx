@@ -67,31 +67,16 @@ export default function Dashboard({ onNavigate }) {
           {pagosEntries.length > 0 ? (
             <div className="space-y-3">
               <div className="flex justify-center">
-                <svg width="140" height="140" viewBox="0 0 140 140">
-                  {(() => {
-                    const R = 55, CX = 70, CY = 70;
-                    const C = 2 * Math.PI * R;
-                    let offset = 0;
-                    return pagosEntries.map(([metodo, monto]) => {
-                      const seg = (monto / totalPagos) * C;
-                      const arr = `${seg} ${C - seg}`;
-                      const o = -offset;
-                      offset += seg;
-                      return (
-                        <circle
-                          key={metodo}
-                          r={R} cx={CX} cy={CY}
-                          fill="none"
-                          stroke={coloresMetodo[metodo] || "#9ca3af"}
-                          strokeWidth={25}
-                          strokeDasharray={arr}
-                          strokeDashoffset={o}
-                          transform={`rotate(-90 ${CX} ${CY})`}
-                        />
-                      );
-                    });
-                  })()}
-                </svg>
+                <div
+                  className="w-36 h-36 rounded-full"
+                  style={{
+                    background: `conic-gradient(${pagosEntries.map(([metodo, monto], i) => {
+                      const p = (monto / totalPagos) * 100;
+                      const start = pagosEntries.slice(0, i).reduce((s, [, m]) => s + (m / totalPagos) * 100, 0);
+                      return `${coloresMetodo[metodo] || "#9ca3af"} ${start}% ${start + p}%`;
+                    }).join(", ")})`,
+                  }}
+                />
               </div>
               <div className="space-y-2">
                 {pagosEntries.map(([metodo, monto]) => (
