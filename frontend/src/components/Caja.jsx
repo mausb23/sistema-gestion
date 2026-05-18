@@ -92,6 +92,8 @@ export default function Caja() {
   const [apUserIds, setApUserIds] = useState([]);
   const [crUserIds, setCrUserIds] = useState([]);
   const [comentariosCierre, setComentariosCierre] = useState("");
+  const [formatoExport, setFormatoExport] = useState("xlsx");
+  const [emailEnvio, setEmailEnvio] = useState("");
 
   useEffect(() => {
     cargarEstado();
@@ -352,7 +354,21 @@ export default function Caja() {
       )}
 
       <div className="bg-white rounded-xl shadow p-4 mt-6">
-        <h3 className="font-semibold mb-3">Historial de cierres</h3>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <h3 className="font-semibold">Historial de cierres</h3>
+          <div className="flex items-center gap-2">
+            <select value={formatoExport} onChange={(e) => setFormatoExport(e.target.value)} className="px-2 py-1 border rounded text-sm bg-white">
+              <option value="xlsx">Excel</option>
+              <option value="ods">Calc</option>
+            </select>
+            <input
+              type="email" placeholder="Correo para envío"
+              value={emailEnvio}
+              onChange={(e) => setEmailEnvio(e.target.value)}
+              className="px-2 py-1 border rounded text-sm w-48"
+            />
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead><tr className="text-left text-gray-500 border-b">
@@ -362,6 +378,7 @@ export default function Caja() {
               <th className="pb-2">Final CRC</th><th className="pb-2">Final USD</th>
               <th className="pb-2">Datafono</th><th className="pb-2">Dif. CRC</th><th className="pb-2">Dif. USD</th>
               <th className="pb-2">Comentarios</th>
+              <th className="pb-2"></th>
             </tr></thead>
             <tbody>
               {historial.map((c) => (
@@ -378,6 +395,20 @@ export default function Caja() {
                   <td className={`py-2 font-medium ${c.diferencia_crc > 0 ? "text-green-600" : c.diferencia_crc < 0 ? "text-red-600" : ""}`}>{c.diferencia_crc != null ? money(c.diferencia_crc) : "-"}</td>
                   <td className={`py-2 font-medium ${c.diferencia_usd > 0 ? "text-green-600" : c.diferencia_usd < 0 ? "text-red-600" : ""}`}>{c.diferencia_usd != null ? money(c.diferencia_usd) : "-"}</td>
                   <td className="py-2 text-xs text-gray-500 max-w-40 truncate" title={c.comentarios || ""}>{c.comentarios || "-"}</td>
+                  <td className="py-2 flex gap-1">
+                    <a href={`/api/caja/${c.id}/exportar-excel?formato=${formatoExport}`} download title="Exportar Excel" className="text-blue-600 hover:text-blue-800 text-xs px-1">📊</a>
+                    <a href={`/api/caja/${c.id}/pdf`} download title="Descargar PDF" className="text-red-600 hover:text-red-800 text-xs px-1">📄</a>
+                    <button
+                      onClick={async () => {
+                        const email = emailEnvio || (await api.get("/config")).correo_cierre;
+                        if (!email) { alert("Escribí un correo o configurá Correo del cierre en Configuración"); return; }
+                        const res = await api.post(`/caja/${c.id}/enviar-correo?destinatario=${encodeURIComponent(email)}`);
+                        alert(res.error ? `Error: ${res.error}` : "Correo enviado ✓");
+                      }}
+                      className="text-green-600 hover:text-green-800 text-xs px-1"
+                      title="Enviar por correo"
+                    >✉</button>
+                  </td>
                 </tr>
               ))}
             </tbody>

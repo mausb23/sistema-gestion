@@ -26,6 +26,7 @@ VALORES_DEFECTO = {
     "smtp_from": "",
     "printer_vendor_id": "",
     "printer_product_id": "",
+    "correo_cierre": "",
 }
 
 

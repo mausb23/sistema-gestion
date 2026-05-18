@@ -137,6 +137,15 @@ export default function Configuracion() {
         </div>
 
         <div className="bg-white p-6 rounded-xl shadow">
+          <h3 className="font-semibold mb-4">Cierre de caja</h3>
+          <p className="text-sm text-gray-500 mb-4">Correo al que se envía el resumen del cierre al final del día</p>
+          <div>
+            <label className="block text-sm text-gray-500 mb-1">Correo del cierre</label>
+            <input value={editConfig.correo_cierre || ""} onChange={(e) => setEditConfig({ ...editConfig, correo_cierre: e.target.value })} onBlur={() => guardarConfig("correo_cierre", editConfig.correo_cierre)} placeholder="contador@ejemplo.com" className="w-full p-2 border rounded-lg" />
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow">
           <h3 className="font-semibold mb-4">Impresora de factura</h3>
           <p className="text-sm text-gray-500 mb-4">Configuración para imprimir tickets en impresora térmica USB (ESC/POS)</p>
           <div className="space-y-3">
