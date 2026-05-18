@@ -39,9 +39,9 @@ def crear_movimiento(data: MovimientoCreate, db: Session = Depends(get_db)):
     if data.tipo == "entrada":
         p.stock += data.cantidad
     elif data.tipo == "salida":
-        p.stock -= data.cantidad
+        p.stock = max(0, p.stock - data.cantidad)
     elif data.tipo == "ajuste":
-        p.stock = data.cantidad
+        p.stock = max(0, data.cantidad)
 
     m = MovimientoInventario(
         producto_id=data.producto_id,

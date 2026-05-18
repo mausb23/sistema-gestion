@@ -79,13 +79,13 @@ def crear(data: VentaCreate, db: Session = Depends(get_db)):
 
         producto = db.query(Producto).get(item.producto_id)
         if producto:
-            stock_anterior = producto.stock
-            producto.stock -= item.cantidad
+            nuevo_stock = max(0, producto.stock - item.cantidad)
+            producto.stock = nuevo_stock
             db.add(MovimientoInventario(
                 producto_id=item.producto_id,
                 tipo="salida",
                 cantidad=item.cantidad,
-                stock_resultante=producto.stock,
+                stock_resultante=nuevo_stock,
                 motivo=f"Venta #{venta.id}",
                 usuario_id=data.usuario_id,
             ))
