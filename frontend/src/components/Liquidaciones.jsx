@@ -168,7 +168,9 @@ export default function Liquidaciones() {
                 </th>
                 <th className="pb-2">Artesano</th>
                 <th className="pb-2">Vendido</th>
-                <th className="pb-2 text-red-500">-5% Comisiones</th>
+                <th className="pb-2 text-red-500">-1% Venta</th>
+                <th className="pb-2 text-red-500">-2% Renta</th>
+                <th className="pb-2 text-red-500">-2% Tienda</th>
                 <th className="pb-2 text-yellow-600">-5% Ahorro</th>
                 <th className="pb-2">Neto (90%)</th>
                 <th className="pb-2">Pagado</th>
@@ -192,8 +194,10 @@ export default function Liquidaciones() {
                   </td>
                   <td className="py-2 font-medium">{l.artesano}</td>
                   <td className="py-2">₡{money(l.monto_vendido)}</td>
-                  <td className="py-2 text-red-500">-₡{money(l.deduccion_comisiones)}</td>
-                  <td className="py-2 text-yellow-600">-₡{money(l.ahorro)}</td>
+                  <td className="py-2 text-red-500">-₡{money(l.deduccion_venta)}</td>
+                  <td className="py-2 text-red-500">-₡{money(l.deduccion_renta)}</td>
+                  <td className="py-2 text-red-500">-₡{money(l.deduccion_tienda)}</td>
+                  <td className="py-2 text-yellow-600">-₡{money(l.deduccion_ahorro)}</td>
                   <td className="py-2 font-medium text-purple-600">₡{money(l.neto)}</td>
                   <td className="py-2 text-green-600">₡{money(l.monto_pagado)}</td>
                   <td className={`py-2 font-medium ${l.pendiente > 0 ? "text-red-600" : "text-green-600"}`}>
@@ -224,7 +228,7 @@ export default function Liquidaciones() {
                 );
               })}
               {(!data?.liquidaciones || data.liquidaciones.length === 0) && (
-                <tr><td colSpan={11} className="py-4 text-center text-gray-400">Sin movimientos</td></tr>
+                <tr><td colSpan={12} className="py-4 text-center text-gray-400">Sin movimientos</td></tr>
               )}
             </tbody>
           </table>
@@ -289,8 +293,16 @@ export default function Liquidaciones() {
           <p className="text-sm text-gray-600 mb-4">Porcentajes aplicados sobre el total vendido:</p>
           <div className="space-y-3">
             <div className="flex justify-between items-center border-b pb-2">
-              <span>Comisiones y renta (5%)</span>
-              <span className="text-red-500">-₡{money(data?.total_vendido ? data.total_vendido * 0.05 : 0)}</span>
+              <span>Venta (1%)</span>
+              <span className="text-red-500">-₡{money(data?.total_vendido ? data.total_vendido * 0.01 : 0)}</span>
+            </div>
+            <div className="flex justify-between items-center border-b pb-2">
+              <span>Renta (2%)</span>
+              <span className="text-red-500">-₡{money(data?.total_vendido ? data.total_vendido * 0.02 : 0)}</span>
+            </div>
+            <div className="flex justify-between items-center border-b pb-2">
+              <span>Tienda (2%)</span>
+              <span className="text-red-500">-₡{money(data?.total_vendido ? data.total_vendido * 0.02 : 0)}</span>
             </div>
             <div className="flex justify-between items-center border-b pb-2">
               <span>Ahorro (5%)</span>

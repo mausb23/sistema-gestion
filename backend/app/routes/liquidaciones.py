@@ -78,17 +78,21 @@ def resumen(periodo: Optional[str] = None, db: Session = Depends(get_db)):
         v = ventas_por_artesano.get(a.id, {"vendido": 0, "costo": 0})
         vendido = round(v["vendido"], 2)
         costo = round(v["costo"], 2)
-        deduccion_comisiones = round(vendido * 0.05, 2)
-        ahorro_del_mes = round(vendido * 0.05, 2)
-        neto = round(vendido - deduccion_comisiones - ahorro_del_mes, 2)
+        deduccion_venta = round(vendido * 0.01, 2)
+        deduccion_renta = round(vendido * 0.02, 2)
+        deduccion_tienda = round(vendido * 0.02, 2)
+        deduccion_ahorro = round(vendido * 0.05, 2)
+        neto = round(vendido - deduccion_venta - deduccion_renta - deduccion_tienda - deduccion_ahorro, 2)
         pagado = pagos_dict.get(a.id, 0)
         if vendido > 0 or pagado > 0:
             resultado.append({
                 "artesano_id": a.id,
                 "artesano": a.nombre,
                 "monto_vendido": vendido,
-                "deduccion_comisiones": deduccion_comisiones,
-                "ahorro": ahorro_del_mes,
+                "deduccion_venta": deduccion_venta,
+                "deduccion_renta": deduccion_renta,
+                "deduccion_tienda": deduccion_tienda,
+                "deduccion_ahorro": deduccion_ahorro,
                 "neto": neto,
                 "monto_pagado": round(pagado, 2),
                 "pendiente": round(neto - pagado, 2),
@@ -339,8 +343,8 @@ def exportar_excel(periodo: Optional[str] = None, formato: str = "xlsx", db: Ses
 
     headers = [
         "Código", "Artesano", "Comunidad", "Teléfono",
-        "Vendido", "-5% Comisiones y renta",
-        "Neto (90%)", "Ya Pagado", "Pendiente", "Ahorro (5%)",
+        "Vendido", "-1% Venta", "-2% Renta", "-2% Tienda", "-5% Ahorro",
+        "Neto (90%)", "Ya Pagado", "Pendiente",
     ]
 
     rows = []
@@ -351,24 +355,26 @@ def exportar_excel(periodo: Optional[str] = None, formato: str = "xlsx", db: Ses
         vendido = round(v["vendido"], 2)
         if vendido == 0 and a.id not in pagos_dict:
             continue
-        deduccion = round(vendido * 0.05, 2)
-        ahorro = round(vendido * 0.05, 2)
-        neto = round(vendido - deduccion - ahorro, 2)
+        d1 = round(vendido * 0.01, 2)
+        d2 = round(vendido * 0.02, 2)
+        d3 = round(vendido * 0.02, 2)
+        d4 = round(vendido * 0.05, 2)
+        neto = round(vendido * 0.90, 2)
         pagado = round(pagos_dict.get(a.id, 0), 2)
-        pendiente = round(neto - pagado, 0)
+        pendiente = round(neto - pagado, 2)
         ahorro = round(ahorros_dict.get(a.id, 0), 2)
         comunidad = a.comunidad.nombre if a.comunidad else ""
         rows.append([a.codigo or "", a.nombre, comunidad, a.telefono or "",
-                     vendido, deduccion,
-                     neto, pagado, pendiente, ahorro])
+                     vendido, d1, d2, d3, d4,
+                     neto, pagado, pendiente])
         total_vendido += vendido
         total_neto += neto
         total_pagado += pagado
         total_pendiente += pendiente
-        total_ahorro += ahorro
+        total_ahorro += d4
 
-    total_row = ["TOTALES", "", "", "", round(total_vendido, 2), "",
-                 round(total_neto, 2), round(total_pagado, 2), round(total_pendiente, 2), round(total_ahorro, 2)]
+    total_row = ["TOTALES", "", "", "", round(total_vendido, 2), "", "", "", "",
+                 round(total_neto, 2), round(total_pagado, 2), round(total_pendiente, 2)]
 
     if formato == "ods":
         data = OrderedDict()
@@ -409,10 +415,10 @@ def exportar_excel(periodo: Optional[str] = None, formato: str = "xlsx", db: Ses
     bold_font = Font(bold=True, size=11)
     for j, val in enumerate(total_row, 1):
         c = ws.cell(row=fila, column=j, value=val)
-        c.font = bold_font if j in (1, 5, 7, 8, 9, 10) else Font()
+        c.font = bold_font if j in (1, 5, 10, 11, 12) else Font()
         c.border = thin_border
 
-    widths = [12, 25, 20, 14, 14, 14, 14, 14, 14, 14]
+    widths = [12, 25, 20, 14, 14, 12, 12, 12, 12, 14, 14, 14]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
