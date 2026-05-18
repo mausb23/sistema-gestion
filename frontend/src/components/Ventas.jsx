@@ -114,15 +114,17 @@ export default function Ventas() {
       : [{ metodo: metodoPago, monto: total, moneda: esUSD ? "USD" : "CRC" }];
     const hayUSD = pagosData.some((p) => p.moneda === "USD");
     const hayCRC = pagosData.some((p) => p.moneda === "CRC");
+    const monedaVenta = hayUSD && hayCRC ? "CRC" : hayUSD ? "USD" : "CRC";
+    const diferencial = esUSD ? (totalUSDCobro * tipoCambio) - total : 0;
     const venta = await api.post("/ventas", {
       usuario_id: usuario.id,
       cliente_id: clienteId,
       items: items.map((i) => ({ producto_id: i.producto_id, cantidad: i.cantidad, precio_unitario: i.precio_unitario })),
       metodo_pago: splitPago ? pagosData[0]?.metodo || metodoPago : metodoPago,
       pagos: pagosData,
-      moneda: hayUSD && hayCRC ? "CRC" : hayUSD ? "USD" : "CRC",
+      moneda: monedaVenta,
     });
-    setVentaCompletada({ id: venta.id, total, moneda: hayUSD && hayCRC ? "CRC" : hayUSD ? "USD" : "CRC", items: [...items] });
+    setVentaCompletada({ id: venta.id, total, moneda: monedaVenta, items: [...items], diferencial, totalUSDCobro, tipoCambio });
     setItems([]);
     setUltimoProducto(null);
     setMontoRecibido("");
@@ -530,7 +532,16 @@ export default function Ventas() {
           {ventaCompletada && (
             <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
               <h3 className="font-semibold text-green-800 mb-2">Venta #{ventaCompletada.id} completada</h3>
-              <p className="text-sm text-green-700 mb-3">Total: {ventaCompletada.moneda === "USD" ? "$" : "₡"}{money(ventaCompletada.total)}</p>
+              <div className="text-sm text-green-700 space-y-1 mb-3">
+                <p>Total: {ventaCompletada.moneda === "USD" ? "$" : "₡"}{money(ventaCompletada.total)}</p>
+                {ventaCompletada.diferencial && ventaCompletada.diferencial !== 0 && (
+                  <p className={ventaCompletada.diferencial > 0 ? "text-amber-600" : "text-blue-600"}>
+                    Cobrado: ${ventaCompletada.totalUSDCobro} → ₡{money(ventaCompletada.totalUSDCobro * ventaCompletada.tipoCambio)}
+                    <br />
+                    <span className="font-medium">Diferencial por redondeo: {ventaCompletada.diferencial > 0 ? "+" : ""}₡{money(ventaCompletada.diferencial)}</span>
+                  </p>
+                )}
+              </div>
               <div className="space-y-3">
                 <div>
                   <p className="text-sm font-medium text-gray-700 mb-1">Enviar recibo por correo</p>
