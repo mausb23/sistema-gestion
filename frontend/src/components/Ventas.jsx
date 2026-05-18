@@ -429,14 +429,23 @@ export default function Ventas() {
                       </div>
                       );
                     })}
-                    {tipoCambio && (
-                      <p className="text-xs text-gray-400 text-right">
-                        Total CRC: ₡{money(totalPagosCRC(pagos))}
-                        {Math.abs(totalPagosCRC(pagos) - total) > 0.5 && (
-                          <span className="text-red-500 ml-1">(debe ser ₡{money(total)})</span>
+                    {tipoCambio && (() => {
+                      const sumaCRC = totalPagosCRC(pagos);
+                      const diff = total - sumaCRC;
+                      const diffAbs = Math.abs(diff);
+                      return (
+                      <div className="space-y-1">
+                        <p className="text-xs text-gray-400 text-right">Total CRC: ₡{money(sumaCRC)}</p>
+                        {diffAbs > 0.5 && (
+                          <p className={`text-xs font-semibold text-right ${diff > 0 ? "text-orange-600" : "text-emerald-600"}`}>
+                            {diff > 0
+                              ? `Faltan ₡${money(diffAbs)}`
+                              : `Sobran ₡${money(diffAbs)}`}
+                          </p>
                         )}
-                      </p>
-                    )}
+                      </div>
+                      );
+                    })()}
                     <div className="flex gap-2 pt-1">
                       <button
                         onClick={() => setPagos([...pagos, { metodo: "efectivo", monto: "", recibido: "" }])}
@@ -453,10 +462,14 @@ export default function Ventas() {
                             const nuevos = [...pagos];
                             const ultimoMetodo = nuevos[ultimo].metodo;
                             const enUSD = ultimoMetodo === "efectivo_dolares" && tipoCambio;
+                            if (enUSD && Math.abs(diff) < tipoCambio) return;
                             const montoActual = parseFloat(nuevos[ultimo].monto) || 0;
-                            const ajuste = enUSD ? diff / tipoCambio : diff;
-                            const nuevoMonto = Math.max(0, montoActual + ajuste);
-                            nuevos[ultimo] = { ...nuevos[ultimo], monto: nuevoMonto.toFixed(2) };
+                            if (enUSD) {
+                              const ajuste = Math.round(diff / tipoCambio);
+                              nuevos[ultimo] = { ...nuevos[ultimo], monto: Math.max(0, Math.round(montoActual + ajuste)).toFixed(0) };
+                            } else {
+                              nuevos[ultimo] = { ...nuevos[ultimo], monto: Math.max(0, parseFloat((montoActual + diff).toFixed(2))).toFixed(2) };
+                            }
                             setPagos(nuevos);
                           }
                         }}
@@ -467,7 +480,7 @@ export default function Ventas() {
                     </div>
                     <button
                       onClick={registrarVenta}
-                      disabled={!items.length || Math.abs(totalPagosCRC(pagos) - total) > 0.5}
+                      disabled={!items.length}
                       className="w-full bg-green-600 text-white py-3 rounded-xl font-bold text-lg hover:bg-green-700 disabled:bg-gray-300"
                     >
                       Cobrar ₡{money(total)}
