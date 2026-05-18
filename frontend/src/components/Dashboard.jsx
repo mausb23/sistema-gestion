@@ -103,7 +103,7 @@ export default function Dashboard({ onNavigate }) {
         </div>
 
         <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow">
-          <h3 className="font-semibold mb-4">Últimas ventas</h3>
+          <h3 className="font-semibold mb-4">Ventas del día</h3>
           <div className="overflow-y-auto max-h-96">
             <table className="w-full text-sm">
               <thead>
