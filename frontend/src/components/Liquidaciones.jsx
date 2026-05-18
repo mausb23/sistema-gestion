@@ -22,6 +22,8 @@ export default function Liquidaciones() {
   const [formato, setFormato] = useState("ods");
   const [selectedIds, setSelectedIds] = useState([]);
   const [msgMasivo, setMsgMasivo] = useState("");
+  const [anioAhorros, setAnioAhorros] = useState(hoy.getFullYear());
+  const [anualAhorros, setAnualAhorros] = useState(null);
 
   useEffect(() => {
     api.get("/artesanos?por_pagina=9999").then(r => setArtesanos(r.artesanos));
@@ -33,6 +35,12 @@ export default function Liquidaciones() {
       api.get(`/liquidaciones/pagos?periodo=${periodo}`).then(setPagos);
     }
   }, [periodo]);
+
+  useEffect(() => {
+    if (tab === "ahorros") {
+      api.get(`/liquidaciones/ahorros/anual?year=${anioAhorros}`).then(setAnualAhorros);
+    }
+  }, [tab, anioAhorros]);
 
   async function registrarPago() {
     if (!pagoForm.artesano_id || !pagoForm.monto) return;
@@ -329,34 +337,50 @@ export default function Liquidaciones() {
         </> )}
       {data && tab === "ahorros" && (
         <>
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="flex items-center gap-3 mb-4">
+          <h3 className="font-semibold text-lg">Ahorros</h3>
+          <button onClick={() => setAnioAhorros(anioAhorros - 1)} className="px-2 py-1 border rounded hover:bg-gray-100 text-sm">←</button>
+          <span className="font-bold text-lg">{anioAhorros}</span>
+          <button onClick={() => setAnioAhorros(anioAhorros + 1)} className="px-2 py-1 border rounded hover:bg-gray-100 text-sm">→</button>
+        </div>
+        <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="bg-white p-4 rounded-xl shadow border-l-4 border-yellow-400">
             <p className="text-gray-500 text-sm">Ahorros totales (5%)</p>
-            <p className="text-2xl font-bold text-yellow-600">₡{money(data.total_ahorro || 0)}</p>
+            <p className="text-2xl font-bold text-yellow-600">₡{money(anualAhorros?.total_ahorrado || 0)}</p>
           </div>
           <div className="bg-white p-4 rounded-xl shadow border-l-4 border-emerald-400">
             <p className="text-gray-500 text-sm">Ahorros pagados</p>
-            <p className="text-2xl font-bold text-emerald-600">₡{money(data.total_ahorro_pagado || 0)}</p>
+            <p className="text-2xl font-bold text-emerald-600">₡{money(anualAhorros?.total_pagado || 0)}</p>
+          </div>
+          <div className="bg-white p-4 rounded-xl shadow border-l-4 border-red-400">
+            <p className="text-gray-500 text-sm">Pendiente de pago</p>
+            <p className="text-2xl font-bold text-red-600">₡{money(anualAhorros?.total_pendiente || 0)}</p>
           </div>
         </div>
 
+        {anualAhorros?.mensual?.length > 0 && (
+          <div className="bg-white rounded-xl shadow p-4 mb-6">
+            <h3 className="font-semibold mb-3">Ahorro por mes</h3>
+            <div className="flex flex-wrap gap-3">
+              {anualAhorros.mensual.map((m) => (
+                <div key={m.periodo} className="bg-gray-50 rounded-lg px-4 py-2 border text-sm min-w-28">
+                  <p className="font-semibold text-gray-600">{m.periodo}</p>
+                  <p className="text-yellow-600 font-medium">₡{money(m.ahorrado)}</p>
+                  <p className="text-emerald-600 text-xs">pagado: ₡{money(m.pagado)}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="bg-white rounded-xl shadow p-4 mb-6">
-          <h3 className="font-semibold mb-4">Ahorros por artesano (5% de las ventas) — se pagan al final del año</h3>
+          <h3 className="font-semibold mb-4">Ahorros por artesano (5% de las ventas)</h3>
+          <p className="text-sm text-gray-500 mb-3">Acumulado anual — se paga al final del año</p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-gray-500 border-b">
-                <th className="pb-2">
-                  <input type="checkbox"
-                    checked={data.liquidaciones.filter(l => l.pendiente > 0).length > 0 && selectedIds.length === data.liquidaciones.filter(l => l.pendiente > 0).length}
-                    onChange={() => {
-                      const pendientes = data.liquidaciones.filter(l => l.pendiente > 0).map(l => l.artesano_id);
-                      setSelectedIds(selectedIds.length === pendientes.length ? [] : pendientes);
-                    }}
-                    className="rounded"
-                  />
-                </th>
-                <th className="pb-2">Artesano</th>
+                  <th className="pb-2">Artesano</th>
                   <th className="pb-2">Comunidad</th>
                   <th className="pb-2">Ahorrado</th>
                   <th className="pb-2">Pagado</th>
@@ -365,32 +389,29 @@ export default function Liquidaciones() {
                 </tr>
               </thead>
               <tbody>
-                {data?.liquidaciones.filter((l) => l.ahorro > 0).map((l) => {
-                  const art = artesanos.find((a) => a.id === l.artesano_id);
-                  return (
+                {anualAhorros?.artesanos?.map((l) => (
                   <tr key={l.artesano_id} className="border-b">
                     <td className="py-2 font-medium">{l.artesano}</td>
-                    <td className="py-2 text-sm text-gray-500">{art?.comunidad?.nombre || "-"}</td>
-                    <td className="py-2">₡{money(l.ahorro)}</td>
-                    <td className="py-2 text-green-600">₡{money(l.ahorro_pagado || 0)}</td>
-                    <td className={`py-2 font-medium ${(l.ahorro - (l.ahorro_pagado || 0)) > 0 ? "text-yellow-600" : "text-green-600"}`}>
-                      ₡{money(l.ahorro - (l.ahorro_pagado || 0))}
+                    <td className="py-2 text-sm text-gray-500">{l.comunidad || "-"}</td>
+                    <td className="py-2">₡{money(l.ahorrado)}</td>
+                    <td className="py-2 text-green-600">₡{money(l.pagado)}</td>
+                    <td className={`py-2 font-medium ${l.pendiente > 0 ? "text-yellow-600" : "text-green-600"}`}>
+                      ₡{money(l.pendiente)}
                     </td>
                     <td className="py-2">
-                      {(l.ahorro - (l.ahorro_pagado || 0)) > 0 && (
+                      {l.pendiente > 0 && (
                         <button
-                          onClick={() => pagarAhorro(l.artesano_id, (l.ahorro - (l.ahorro_pagado || 0)).toFixed(2))}
+                          onClick={() => pagarAhorro(l.artesano_id, l.pendiente.toFixed(2))}
                           className="text-yellow-600 text-xs hover:underline"
                         >
-                          Pagar ahorro
+                          Pagar
                         </button>
                       )}
                     </td>
                   </tr>
-                  );
-                })}
-                {(!data?.liquidaciones || data.liquidaciones.filter((l) => l.ahorro > 0).length === 0) && (
-                  <tr><td colSpan={6} className="py-4 text-center text-gray-400">Sin ahorros este período</td></tr>
+                ))}
+                {(!anualAhorros?.artesanos || anualAhorros.artesanos.length === 0) && (
+                  <tr><td colSpan={6} className="py-4 text-center text-gray-400">Sin ahorros en {anioAhorros}</td></tr>
                 )}
               </tbody>
             </table>
@@ -398,24 +419,23 @@ export default function Liquidaciones() {
         </div>
 
         <div className="bg-white rounded-xl shadow p-4">
-          <h3 className="font-semibold mb-4">Resumen de ahorros por período</h3>
-          <p className="text-sm text-gray-600 mb-4">El 5% de cada venta se aparta como ahorro para el artesano y se paga al final del año.</p>
+          <h3 className="font-semibold mb-4">Resumen anual {anioAhorros}</h3>
           <div className="space-y-3">
             <div className="flex justify-between items-center border-b pb-2">
-              <span>Total vendido del período</span>
-              <span className="text-blue-600 font-medium">₡{money(data?.total_vendido || 0)}</span>
+              <span>Total vendido (estimado)</span>
+              <span className="text-blue-600 font-medium">₡{money((anualAhorros?.total_ahorrado || 0) / 0.05)}</span>
             </div>
             <div className="flex justify-between items-center border-b pb-2">
               <span>Ahorro (5%)</span>
-              <span className="text-yellow-600 font-medium">₡{money(data?.total_ahorro || 0)}</span>
+              <span className="text-yellow-600 font-medium">₡{money(anualAhorros?.total_ahorrado || 0)}</span>
             </div>
             <div className="flex justify-between items-center border-b pb-2">
               <span>Ya pagado</span>
-              <span className="text-emerald-600 font-medium">₡{money(data?.total_ahorro_pagado || 0)}</span>
+              <span className="text-emerald-600 font-medium">₡{money(anualAhorros?.total_pagado || 0)}</span>
             </div>
             <div className="flex justify-between items-center pt-2 font-bold">
               <span>Pendiente de pago</span>
-              <span className="text-yellow-600">₡{money((data?.total_ahorro || 0) - (data?.total_ahorro_pagado || 0))}</span>
+              <span className="text-yellow-600">₡{money(anualAhorros?.total_pendiente || 0)}</span>
             </div>
           </div>
         </div>

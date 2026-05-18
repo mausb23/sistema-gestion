@@ -466,3 +466,60 @@ def historial_artesano(artesano_id: int, db: Session = Depends(get_db)):
         }
         for periodo in periodos
     ]
+
+
+@router.get("/ahorros/anual")
+def ahorros_anual(year: int, db: Session = Depends(get_db)):
+    prefijo = f"{year}-"
+    ahorros = db.query(
+        AhorroArtesano.artesano_id,
+        func.sum(AhorroArtesano.monto_ahorrado).label("total_ahorrado"),
+        func.sum(AhorroArtesano.monto_pagado).label("total_pagado"),
+    ).filter(
+        AhorroArtesano.periodo.like(f"{prefijo}%"),
+    ).group_by(AhorroArtesano.artesano_id).all()
+
+    ids = [a.artesano_id for a in ahorros]
+    mapa = {}
+    if ids:
+        arts = db.query(Artesano).filter(Artesano.id.in_(ids)).all()
+        for a in arts:
+            mapa[a.id] = {"nombre": a.nombre, "comunidad": a.comunidad.nombre if a.comunidad else ""}
+
+    resultado = []
+    total_a = 0.0
+    total_p = 0.0
+    for a in ahorros:
+        info = mapa.get(a.artesano_id, {"nombre": f"#{a.artesano_id}", "comunidad": ""})
+        ah = float(a.total_ahorrado or 0)
+        pg = float(a.total_pagado or 0)
+        total_a += ah
+        total_p += pg
+        resultado.append({
+            "artesano_id": a.artesano_id,
+            "artesano": info["nombre"],
+            "comunidad": info["comunidad"],
+            "ahorrado": round(ah, 2),
+            "pagado": round(pg, 2),
+            "pendiente": round(ah - pg, 2),
+        })
+    resultado.sort(key=lambda x: x["artesano"])
+
+    mensual = db.query(
+        AhorroArtesano.periodo,
+        func.sum(AhorroArtesano.monto_ahorrado).label("ahorrado"),
+        func.sum(AhorroArtesano.monto_pagado).label("pagado"),
+    ).filter(AhorroArtesano.periodo.like(f"{prefijo}%")
+    ).group_by(AhorroArtesano.periodo).order_by(AhorroArtesano.periodo).all()
+
+    return {
+        "year": year,
+        "total_ahorrado": round(total_a, 2),
+        "total_pagado": round(total_p, 2),
+        "total_pendiente": round(total_a - total_p, 2),
+        "artesanos": resultado,
+        "mensual": [
+            {"periodo": m.periodo, "ahorrado": round(float(m.ahorrado or 0), 2), "pagado": round(float(m.pagado or 0), 2)}
+            for m in mensual
+        ],
+    }
