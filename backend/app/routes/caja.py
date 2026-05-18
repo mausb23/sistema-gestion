@@ -1,3 +1,4 @@
+import os
 import json
 from io import BytesIO
 from collections import OrderedDict
@@ -316,8 +317,13 @@ def exportar_excel_cierre(cierre_id: int, formato: str = Query("xlsx", regex="^(
         headers={"Content-Disposition": f"attachment; filename=cierre_{cierre_id}.xlsx"})
 
 
-FONT_REGULAR = "/usr/share/fonts/TTF/DejaVuSans.ttf"
-FONT_BOLD = "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf"
+_FONT_CANDIDATES = [
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/TTF/DejaVuSans.ttf",
+]
+_FONT_DIR = next((os.path.dirname(p) for p in _FONT_CANDIDATES if os.path.exists(p)), "/usr/share/fonts/TTF")
+FONT_REGULAR = f"{_FONT_DIR}/DejaVuSans.ttf"
+FONT_BOLD = f"{_FONT_DIR}/DejaVuSans-Bold.ttf"
 
 
 @router.get("/{cierre_id}/pdf")

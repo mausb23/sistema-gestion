@@ -24,15 +24,27 @@ Sistema de gestión de ventas para pequeños negocios artesanales en Costa Rica.
 
 ## Requisitos
 
-- Python 3.14+
+- Python 3.12+ (probado en 3.12–3.14)
 - Node.js 20+
 - npm 10+
+
+### Dependencias de sistema Ubuntu
+
+```bash
+sudo apt install -y python3-gi gir1.2-webkit2-4.1 libusb-1.0-0-dev fonts-dejavu-core
+```
+
+- `python3-gi` + `gir1.2-webkit2-4.1` — necesarios para `pywebview` (ventana nativa)
+- `libusb-1.0-0-dev` — necesario para `python-escpos` (impresora térmica USB)
+- `fonts-dejavu-core` — necesario para generar PDFs con caracteres especiales (ñ, ₡)
+
+Si no se instalan, el sistema funciona igual pero cae a modo navegador en vez de ventana nativa.
 
 ## Desarrollo
 
 ### Backend
 
-En sistemas como Arch Linux, pip está bloqueado para instalación global (PEP 668). Se recomienda usar un **entorno virtual** que aísla las dependencias del sistema:
+En sistemas con pip bloqueado (PEP 668), se recomienda usar un **entorno virtual**:
 
 ```bash
 # Crear el entorno virtual (solo la primera vez)
@@ -75,9 +87,10 @@ Inicia el servidor en `http://localhost:4321` con proxy a la API.
 ```bash
 scripts\build.bat   # Windows
 scripts/build.sh    # Unix
+scripts/build_ubuntu.sh  # Ubuntu (instala dependencias de sistema automáticamente)
 ```
 
-Genera un ejecutable único en `backend/dist/gestion-ventas.exe`.
+Genera un ejecutable único en `backend/dist/gestion-ventas`.
 
 ## Estructura del Proyecto
 

@@ -1,3 +1,4 @@
+import os
 from io import BytesIO
 from datetime import datetime, date, timedelta
 from fastapi import APIRouter, Depends, Query
@@ -125,8 +126,13 @@ def resumen(db: Session = Depends(get_db)):
     }
 
 
-FONT_REGULAR = "/usr/share/fonts/TTF/DejaVuSans.ttf"
-FONT_BOLD = "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf"
+_FONT_CANDIDATES = [
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/TTF/DejaVuSans.ttf",
+]
+_FONT_DIR = next((os.path.dirname(p) for p in _FONT_CANDIDATES if os.path.exists(p)), "/usr/share/fonts/TTF")
+FONT_REGULAR = f"{_FONT_DIR}/DejaVuSans.ttf"
+FONT_BOLD = f"{_FONT_DIR}/DejaVuSans-Bold.ttf"
 
 
 def _pdf_init():
