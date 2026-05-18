@@ -28,7 +28,7 @@ def crear(data: CategoriaCreate, db: Session = Depends(get_db)):
 
 @router.put("/{categoria_id}")
 def actualizar(categoria_id: int, data: CategoriaCreate, db: Session = Depends(get_db)):
-    c = db.query(Categoria).get(categoria_id)
+    c = db.get(Categoria, categoria_id)
     if not c:
         return {"error": "Categoría no encontrada"}
     c.nombre = data.nombre
@@ -39,7 +39,7 @@ def actualizar(categoria_id: int, data: CategoriaCreate, db: Session = Depends(g
 
 @router.delete("/{categoria_id}")
 def eliminar(categoria_id: int, db: Session = Depends(get_db)):
-    c = db.query(Categoria).get(categoria_id)
+    c = db.get(Categoria, categoria_id)
     if not c:
         return {"error": "Categoría no encontrada"}
     db.delete(c)

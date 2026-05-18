@@ -8,6 +8,7 @@ from sqlalchemy import func
 from pydantic import BaseModel
 from typing import Optional
 from openpyxl import Workbook
+from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from pyexcel_ods3 import save_data as save_ods
 from app.database import get_db
@@ -152,7 +153,7 @@ def crear_pago(data: PagoCreate, db: Session = Depends(get_db)):
 
 @router.delete("/pagos/{pago_id}")
 def eliminar_pago(pago_id: int, db: Session = Depends(get_db)):
-    p = db.query(PagoArtesano).get(pago_id)
+    p = db.get(PagoArtesano, pago_id)
     if not p:
         return {"error": "Pago no encontrado"}
     db.delete(p)
@@ -309,7 +310,7 @@ def exportar_excel(periodo: Optional[str] = None, formato: str = "xlsx", db: Ses
 
     widths = [12, 25, 20, 14, 14, 12, 12, 12, 14, 14, 14, 14]
     for i, w in enumerate(widths, 1):
-        ws.column_dimensions[chr(64 + i)].width = w
+        ws.column_dimensions[get_column_letter(i)].width = w
 
     buf = BytesIO()
     wb.save(buf)
@@ -327,36 +328,31 @@ def historial_artesano(artesano_id: int, db: Session = Depends(get_db)):
         PagoArtesano.artesano_id == artesano_id
     ).order_by(PagoArtesano.fecha_pago.desc()).all()
 
-    periodos_con_pago = set(p.periodo for p in pagos)
-    todos_los_periodos = sorted(periodos_con_pago, reverse=True)
+    periodos = sorted(set(p.periodo for p in pagos), reverse=True)
+    if not periodos:
+        return []
 
-    resultado = []
-    for periodo in todos_los_periodos:
-        year, month = map(int, periodo.split("-"))
-        inicio = datetime(year, month, 1)
-        fin = datetime(year + 1, 1, 1) if month == 12 else datetime(year, month + 1, 1)
+    ventas_por_periodo = {}
+    rows = db.query(
+        func.strftime("%Y-%m", Venta.fecha).label("periodo"),
+        func.sum(VentaItem.cantidad * Producto.costo).label("total"),
+    ).select_from(VentaItem).join(Producto).join(Venta).filter(
+        Producto.artesano_id == artesano_id,
+        Venta.estado == "completada",
+    ).group_by(func.strftime("%Y-%m", Venta.fecha)).all()
+    for r in rows:
+        ventas_por_periodo[r.periodo] = float(r.total or 0)
 
-        ventas = (
-            db.query(func.sum(VentaItem.cantidad * Producto.costo))
-            .join(Producto)
-            .join(Venta)
-            .filter(
-                VentaItem.producto_id == Producto.id,
-                Producto.artesano_id == artesano_id,
-                Venta.fecha >= inicio,
-                Venta.fecha < fin,
-                Venta.estado == "completada",
-            )
-            .scalar() or 0
-        )
+    pagos_por_periodo = {}
+    for p in pagos:
+        pagos_por_periodo[p.periodo] = pagos_por_periodo.get(p.periodo, 0) + p.monto
 
-        pagado = sum(p.monto for p in pagos if p.periodo == periodo)
-
-        resultado.append({
+    return [
+        {
             "periodo": periodo,
-            "monto_vendido": round(float(ventas), 2),
-            "monto_pagado": round(pagado, 2),
-            "pendiente": round(float(ventas) - pagado, 2),
-        })
-
-    return resultado
+            "monto_vendido": round(ventas_por_periodo.get(periodo, 0), 2),
+            "monto_pagado": round(pagos_por_periodo.get(periodo, 0), 2),
+            "pendiente": round(ventas_por_periodo.get(periodo, 0) - pagos_por_periodo.get(periodo, 0), 2),
+        }
+        for periodo in periodos
+    ]

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../lib/api";
-import { money } from "../lib/format";
+import { money, etiquetaMetodoPago } from "../lib/format";
 
 export default function Dashboard({ onNavigate }) {
   const [data, setData] = useState(null);
@@ -27,8 +27,7 @@ export default function Dashboard({ onNavigate }) {
     tarjeta: "bg-purple-500",
     sinpe: "bg-orange-500",
   };
-  const etiquetaMetodo = (m) =>
-    ({ efectivo: "Colones", efectivo_dolares: "Dólares", sinpe: "SINPE", tarjeta: "Tarjeta" }[m] || m);
+  const etiquetaMetodo = etiquetaMetodoPago;
 
   return (
     <div>
@@ -112,11 +111,7 @@ export default function Dashboard({ onNavigate }) {
                     <td className="py-2">{new Date(v.fecha).toLocaleTimeString()}</td>
                     <td className="py-2">{v.usuario?.nombre || "-"}</td>
                     <td className="py-2 font-medium">₡{money(v.total)}</td>
-                    <td className="py-2 capitalize">{(() => {
-                      const mp = v.metodo_pago;
-                      if (mp.includes("+")) return mp.split("+").map(m => ({efectivo:"Colones",efectivo_dolares:"Dólares",sinpe:"SINPE",tarjeta:"Tarjeta"}[m]||m)).join("+");
-                      return mp === "efectivo_dolares" ? "Dólares" : mp === "efectivo" ? "Colones" : mp === "sinpe" ? "SINPE Móvil" : mp;
-                    })()}</td>
+                    <td className="py-2">{etiquetaMetodoPago(v.metodo_pago)}</td>
                   </tr>
                 ))}
                 {ventasHoy.length === 0 && (

@@ -29,14 +29,17 @@ VALORES_DEFECTO = {
 }
 
 
+CLAVES_SENSIBLES = {"smtp_password"}
+
 @router.get("")
 def obtener_config(db: Session = Depends(get_db)):
     configs = db.query(Configuracion).all()
     result = {}
     for c in configs:
-        result[c.clave] = c.valor
+        if c.clave not in CLAVES_SENSIBLES:
+            result[c.clave] = c.valor
     for k, v in VALORES_DEFECTO.items():
-        if k not in result:
+        if k not in result and k not in CLAVES_SENSIBLES:
             result[k] = v
     return result
 

@@ -10,7 +10,7 @@ router = APIRouter(prefix="/api/notificaciones", tags=["notificaciones"])
 
 @router.post("/enviar-recibo/{venta_id}")
 def enviar_recibo(venta_id: int, destinatario: str = "", db: Session = Depends(get_db)):
-    venta = db.query(Venta).get(venta_id)
+    venta = db.get(Venta, venta_id)
     if not venta:
         return {"error": "Venta no encontrada"}
 

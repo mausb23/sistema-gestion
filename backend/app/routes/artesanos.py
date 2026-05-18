@@ -45,7 +45,7 @@ def crear(data: ArtesanoCreate, db: Session = Depends(get_db)):
 
 @router.put("/{artesano_id}")
 def actualizar(artesano_id: int, data: ArtesanoCreate, db: Session = Depends(get_db)):
-    a = db.query(Artesano).get(artesano_id)
+    a = db.get(Artesano, artesano_id)
     if not a:
         return {"error": "Artesano no encontrado"}
     for key, val in data.model_dump().items():
@@ -56,7 +56,7 @@ def actualizar(artesano_id: int, data: ArtesanoCreate, db: Session = Depends(get
 
 @router.delete("/{artesano_id}")
 def eliminar(artesano_id: int, db: Session = Depends(get_db)):
-    a = db.query(Artesano).get(artesano_id)
+    a = db.get(Artesano, artesano_id)
     if not a:
         return {"error": "Artesano no encontrado"}
     a.activo = False

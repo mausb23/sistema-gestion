@@ -31,7 +31,7 @@ def listar_movimientos(
 
 @router.post("/movimientos")
 def crear_movimiento(data: MovimientoCreate, db: Session = Depends(get_db)):
-    p = db.query(Producto).get(data.producto_id)
+    p = db.get(Producto, data.producto_id)
     if not p:
         return {"error": "Producto no encontrado"}
 

@@ -52,28 +52,35 @@ def artesanos_estado(db: Session = Depends(get_db)):
     hace_6m = datetime.now() - timedelta(days=180)
 
     artesanos = db.query(Artesano).filter(Artesano.activo == True).all()
+    ids = [a.id for a in artesanos]
+    if not ids:
+        return {"activos": [], "rezagados": [], "inactivos": [], "total_activos": 0, "total_rezagados": 0, "total_inactivos": 0}
+
+    productos_por_artesano = {id: [] for id in ids}
+    for p in db.query(Producto).filter(Producto.artesano_id.in_(ids), Producto.activo == 1).all():
+        productos_por_artesano[p.artesano_id].append(p)
+
+    artesanos_con_venta = set()
+    for (aid,) in db.query(Producto.artesano_id).join(VentaItem, VentaItem.producto_id == Producto.id).join(Venta, Venta.id == VentaItem.venta_id).filter(
+        Producto.artesano_id.in_(ids),
+        Venta.fecha >= hace_6m,
+        Venta.estado == "completada",
+    ).distinct().all():
+        artesanos_con_venta.add(aid)
 
     activos = []
     rezagados = []
     inactivos = []
 
     for a in artesanos:
-        productos = db.query(Producto).filter(
-            Producto.artesano_id == a.id, Producto.activo == 1
-        ).all()
-
+        productos = productos_por_artesano.get(a.id, [])
         tiene_stock = any(p.stock > 0 for p in productos)
         total_stock = sum(p.stock for p in productos)
+        tiene_venta = a.id in artesanos_con_venta
 
-        venta_reciente = db.query(VentaItem).join(Producto).join(Venta).filter(
-            Producto.artesano_id == a.id,
-            Venta.fecha >= hace_6m,
-            Venta.estado == "completada",
-        ).first()
-
-        if venta_reciente and tiene_stock:
+        if tiene_venta and tiene_stock:
             activos.append({"id": a.id, "codigo": a.codigo, "nombre": a.nombre, "total_stock": total_stock})
-        elif venta_reciente and not tiene_stock:
+        elif tiene_venta and not tiene_stock:
             rezagados.append({"id": a.id, "codigo": a.codigo, "nombre": a.nombre})
         else:
             inactivos.append({"id": a.id, "codigo": a.codigo, "nombre": a.nombre})
@@ -92,15 +99,15 @@ def artesanos_estado(db: Session = Depends(get_db)):
 def resumen(db: Session = Depends(get_db)):
     hoy = date.today()
     inicio_hoy = datetime(hoy.year, hoy.month, hoy.day, 0, 0, 0)
-    fin_hoy = datetime(hoy.year, hoy.month, hoy.day, 23, 59, 59)
+    fin_hoy = inicio_hoy + timedelta(days=1)
 
     ayer = hoy - timedelta(days=1)
     inicio_ayer = datetime(ayer.year, ayer.month, ayer.day, 0, 0, 0)
-    fin_ayer = datetime(ayer.year, ayer.month, ayer.day, 23, 59, 59)
+    fin_ayer = inicio_ayer + timedelta(days=1)
 
     def ventas_entre(inicio, fin):
         r = db.query(func.sum(Venta.total), func.count(Venta.id)).filter(
-            Venta.fecha >= inicio, Venta.fecha <= fin, Venta.estado == "completada"
+            Venta.fecha >= inicio, Venta.fecha < fin, Venta.estado == "completada"
         ).first()
         return float(r[0] or 0), r[1] or 0
 
@@ -193,9 +200,17 @@ def exportar_pdf_artesano(artesano_id: int, db: Session = Depends(get_db)):
 @router.get("/inventario-artesanos/pdf")
 def exportar_pdf_inventario(db: Session = Depends(get_db)):
     artesanos = db.query(Artesano).filter(Artesano.activo == True).order_by(Artesano.nombre).all()
+    ids = [a.id for a in artesanos]
 
     total_productos = db.query(func.count(Producto.id)).filter(Producto.activo == 1).scalar() or 0
     sin_stock = db.query(func.count(Producto.id)).filter(Producto.activo == 1, Producto.stock <= 0).scalar() or 0
+
+    productos_por_artesano = {id: [] for id in ids}
+    if ids:
+        for p in db.query(Producto).filter(
+            Producto.artesano_id.in_(ids), Producto.activo == 1
+        ).order_by(Producto.codigo).all():
+            productos_por_artesano.setdefault(p.artesano_id, []).append(p)
 
     pdf = _pdf_init()
     pdf.add_page()
@@ -214,9 +229,7 @@ def exportar_pdf_inventario(db: Session = Depends(get_db)):
         nombre = f"{a.codigo} - {a.nombre}" if a.codigo else a.nombre
         comunidad = f"{a.comunidad.nombre} {a.comunidad.cultura or ''}".strip() if a.comunidad else ""
 
-        productos = db.query(Producto).filter(
-            Producto.artesano_id == a.id, Producto.activo == 1
-        ).order_by(Producto.codigo).all()
+        productos = productos_por_artesano.get(a.id, [])
 
         if not productos:
             continue
@@ -280,12 +293,18 @@ def inventario_artesanos(
     total = q.count()
     artesanos = q.order_by(Artesano.nombre).offset((pagina - 1) * por_pagina).limit(por_pagina).all()
 
+    ids = [a.id for a in artesanos]
+    productos_por_artesano = {id: [] for id in ids}
+    if ids:
+        for p in db.query(Producto).filter(
+            Producto.artesano_id.in_(ids),
+            Producto.activo == 1,
+        ).order_by(Producto.codigo).all():
+            productos_por_artesano.setdefault(p.artesano_id, []).append(p)
+
     resultado = []
     for a in artesanos:
-        productos = db.query(Producto).filter(
-            Producto.artesano_id == a.id,
-            Producto.activo == 1,
-        ).order_by(Producto.codigo).all()
+        productos = productos_por_artesano.get(a.id, [])
 
         en_stock = sum(1 for p in productos if p.stock > 0)
         sin_stock = sum(1 for p in productos if p.stock <= 0)

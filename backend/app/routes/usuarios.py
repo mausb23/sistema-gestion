@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from app.database import get_db
 from app.models.usuario import Usuario
 
@@ -18,8 +18,7 @@ class UsuarioOut(BaseModel):
     rol: str
     activo: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 @router.get("")
@@ -38,7 +37,7 @@ def crear_usuario(data: UsuarioCreate, db: Session = Depends(get_db)):
 
 @router.put("/{usuario_id}")
 def actualizar_usuario(usuario_id: int, data: UsuarioCreate, db: Session = Depends(get_db)):
-    u = db.query(Usuario).get(usuario_id)
+    u = db.get(Usuario, usuario_id)
     if not u:
         return {"error": "Usuario no encontrado"}
     u.nombre = data.nombre
@@ -49,7 +48,7 @@ def actualizar_usuario(usuario_id: int, data: UsuarioCreate, db: Session = Depen
 
 @router.delete("/{usuario_id}")
 def eliminar_usuario(usuario_id: int, db: Session = Depends(get_db)):
-    u = db.query(Usuario).get(usuario_id)
+    u = db.get(Usuario, usuario_id)
     if not u:
         return {"error": "Usuario no encontrado"}
     u.activo = False

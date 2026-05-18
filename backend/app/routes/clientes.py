@@ -33,7 +33,7 @@ def crear(data: ClienteCreate, db: Session = Depends(get_db)):
 
 @router.put("/{cliente_id}")
 def actualizar(cliente_id: int, data: ClienteCreate, db: Session = Depends(get_db)):
-    c = db.query(Cliente).get(cliente_id)
+    c = db.get(Cliente, cliente_id)
     if not c:
         return {"error": "Cliente no encontrado"}
     for key, val in data.model_dump().items():
@@ -44,7 +44,7 @@ def actualizar(cliente_id: int, data: ClienteCreate, db: Session = Depends(get_d
 
 @router.delete("/{cliente_id}")
 def eliminar(cliente_id: int, db: Session = Depends(get_db)):
-    c = db.query(Cliente).get(cliente_id)
+    c = db.get(Cliente, cliente_id)
     if not c:
         return {"error": "Cliente no encontrado"}
     db.delete(c)

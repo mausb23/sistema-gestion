@@ -53,7 +53,7 @@ def listar(
 
 @router.get("/{producto_id}")
 def obtener(producto_id: int, db: Session = Depends(get_db)):
-    p = db.query(Producto).get(producto_id)
+    p = db.get(Producto, producto_id)
     if not p:
         return {"error": "Producto no encontrado"}
     return p
@@ -70,7 +70,7 @@ def crear(data: ProductoCreate, db: Session = Depends(get_db)):
 
 @router.put("/{producto_id}")
 def actualizar(producto_id: int, data: ProductoCreate, db: Session = Depends(get_db)):
-    p = db.query(Producto).get(producto_id)
+    p = db.get(Producto, producto_id)
     if not p:
         return {"error": "Producto no encontrado"}
     for key, val in data.model_dump().items():
@@ -81,7 +81,7 @@ def actualizar(producto_id: int, data: ProductoCreate, db: Session = Depends(get
 
 @router.delete("/{producto_id}")
 def eliminar(producto_id: int, db: Session = Depends(get_db)):
-    p = db.query(Producto).get(producto_id)
+    p = db.get(Producto, producto_id)
     if not p:
         return {"error": "Producto no encontrado"}
     p.activo = 0

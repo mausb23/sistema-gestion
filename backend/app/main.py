@@ -1,5 +1,6 @@
 import sys
 import os
+import logging
 import threading
 import time
 import urllib.request
@@ -45,6 +46,9 @@ def guardar_tipo_cambio(tc: dict):
         db.close()
 
 
+logger = logging.getLogger(__name__)
+
+
 def scrapeo_periodico():
     while True:
         try:
@@ -52,7 +56,7 @@ def scrapeo_periodico():
             if tc:
                 guardar_tipo_cambio(tc)
         except Exception:
-            pass
+            logger.warning("Fallo al scrapear tipo de cambio", exc_info=True)
         time.sleep(7200)
 
 
@@ -119,16 +123,21 @@ async def lifespan(app: FastAPI):
         from sqlalchemy import text
         with engine.connect() as conn:
             conn.execute(text("ALTER TABLE ventas ADD COLUMN pagos_detalle TEXT"))
+            conn.execute(text("ALTER TABLE cierres_caja ADD COLUMN usuario_cierre_id INTEGER REFERENCES usuarios(id)"))
+            conn.execute(text("ALTER TABLE cierres_caja ADD COLUMN usuarios_apertura TEXT"))
+            conn.execute(text("ALTER TABLE cierres_caja ADD COLUMN usuarios_cierre TEXT"))
+            conn.execute(text("ALTER TABLE cierres_caja ADD COLUMN comentarios TEXT"))
+            conn.execute(text("ALTER TABLE movimientos_caja ADD COLUMN moneda VARCHAR(10) DEFAULT 'CRC'"))
             conn.commit()
     except Exception:
-        pass
+        logger.info("Columnas de caja ya existen")
     seed_comunidades()
     try:
         tc = obtener_tipo_cambio()
         if tc:
             guardar_tipo_cambio(tc)
     except Exception:
-        pass
+        logger.warning("No se pudo obtener tipo de cambio al iniciar")
     hilo = threading.Thread(target=scrapeo_periodico, daemon=True)
     hilo.start()
     if STATIC_DIR.exists() and any(STATIC_DIR.iterdir()):

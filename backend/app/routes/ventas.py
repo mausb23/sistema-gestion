@@ -1,7 +1,7 @@
 import json
 from collections import OrderedDict
-from datetime import datetime, date
-from fastapi import APIRouter, Depends
+from datetime import datetime, date, timedelta
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from pydantic import BaseModel
@@ -9,6 +9,7 @@ from typing import Optional, List
 from fastapi.responses import StreamingResponse
 from io import BytesIO
 from openpyxl import Workbook
+from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from pyexcel_ods3 import save_data as save_ods
 from app.database import get_db
@@ -43,13 +44,21 @@ class VentaCreate(BaseModel):
 
 
 @router.get("")
-def listar(fecha_desde: Optional[str] = None, fecha_hasta: Optional[str] = None, db: Session = Depends(get_db)):
+def listar(
+    fecha_desde: Optional[str] = None,
+    fecha_hasta: Optional[str] = None,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(50, ge=1, le=500),
+    db: Session = Depends(get_db),
+):
     q = db.query(Venta)
     if fecha_desde:
         q = q.filter(Venta.fecha >= datetime.fromisoformat(fecha_desde))
     if fecha_hasta:
         q = q.filter(Venta.fecha <= datetime.fromisoformat(fecha_hasta))
-    return q.order_by(Venta.fecha.desc()).all()
+    total = q.count()
+    items = q.order_by(Venta.fecha.desc()).offset((page - 1) * per_page).limit(per_page).all()
+    return {"items": items, "total": total, "page": page, "per_page": per_page}
 
 
 @router.get("/hoy")
@@ -59,8 +68,8 @@ def ventas_hoy(db: Session = Depends(get_db)):
 
     hoy = date.today()
     inicio = datetime(hoy.year, hoy.month, hoy.day, 0, 0, 0)
-    fin = datetime(hoy.year, hoy.month, hoy.day, 23, 59, 59)
-    q = db.query(Venta).filter(Venta.fecha >= inicio, Venta.fecha <= fin)
+    manana = inicio + timedelta(days=1)
+    q = db.query(Venta).filter(Venta.fecha >= inicio, Venta.fecha < manana)
     ventas = q.order_by(Venta.fecha.desc()).all()
     total = sum(v.total for v in ventas)
 
@@ -128,7 +137,7 @@ def crear(data: VentaCreate, db: Session = Depends(get_db)):
         )
         db.add(vi)
 
-        producto = db.query(Producto).get(item.producto_id)
+        producto = db.get(Producto, item.producto_id)
         if producto:
             nuevo_stock = max(0, producto.stock - item.cantidad)
             producto.stock = nuevo_stock
@@ -148,11 +157,11 @@ def crear(data: VentaCreate, db: Session = Depends(get_db)):
 
 @router.delete("/{venta_id}")
 def eliminar(venta_id: int, db: Session = Depends(get_db)):
-    v = db.query(Venta).get(venta_id)
+    v = db.get(Venta, venta_id)
     if not v:
         return {"error": "Venta no encontrada"}
     for item in v.items:
-        producto = db.query(Producto).get(item.producto_id)
+        producto = db.get(Producto, item.producto_id)
         if producto:
             producto.stock += item.cantidad
     v.estado = "anulada"
@@ -162,7 +171,7 @@ def eliminar(venta_id: int, db: Session = Depends(get_db)):
 
 @router.post("/{venta_id}/imprimir")
 def imprimir_venta(venta_id: int, db: Session = Depends(get_db)):
-    venta = db.query(Venta).get(venta_id)
+    venta = db.get(Venta, venta_id)
     if not venta:
         return {"error": "Venta no encontrada"}
     return imprimir_ticket(venta, db)
@@ -248,7 +257,7 @@ def exportar_excel(fecha_desde: Optional[str] = None, fecha_hasta: Optional[str]
 
     widths = [18, 30, 10, 15, 25, 25, 15, 20, 18, 25]
     for i, w in enumerate(widths, 1):
-        ws.column_dimensions[chr(64 + i)].width = w
+        ws.column_dimensions[get_column_letter(i)].width = w
 
     buf = BytesIO()
     wb.save(buf)
