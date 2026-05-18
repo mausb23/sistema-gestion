@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { api } from "../lib/api";
 import { money, etiquetaMetodoPago } from "../lib/format";
 
@@ -7,6 +7,7 @@ export default function Dashboard({ onNavigate }) {
   const [ventasHoy, setVentasHoy] = useState([]);
   const [resumenPagos, setResumenPagos] = useState({});
   const [artesanos, setArtesanos] = useState({ activos: [], rezagados: [], inactivos: [] });
+  const [ventaExpandida, setVentaExpandida] = useState(null);
 
   useEffect(() => {
     api.get("/reportes/resumen").then(setData);
@@ -115,12 +116,40 @@ export default function Dashboard({ onNavigate }) {
               </thead>
               <tbody>
                 {ventasHoy.slice(0, 30).map((v) => (
-                  <tr key={v.id} className="border-b border-gray-100">
-                    <td className="py-2">{new Date(v.fecha).toLocaleTimeString()}</td>
+                  <Fragment key={v.id}>
+                  <tr className="border-b border-gray-100 cursor-pointer" onClick={() => setVentaExpandida(ventaExpandida === v.id ? null : v.id)}>
+                    <td className="py-2">{ventaExpandida === v.id ? "▼" : "▶"} {new Date(v.fecha).toLocaleTimeString()}</td>
                     <td className="py-2">{v.usuario?.nombre || "-"}</td>
                     <td className="py-2 font-medium">₡{money(v.total)}</td>
                     <td className="py-2">{etiquetaMetodoPago(v.metodo_pago)}</td>
                   </tr>
+                  {ventaExpandida === v.id && v.items?.length > 0 && (
+                    <tr key={"det-" + v.id} className="bg-gray-50">
+                      <td colSpan={4} className="p-0">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="text-left text-gray-400 border-t">
+                              <th className="pl-8 pr-2 py-1 font-medium">Producto</th>
+                              <th className="px-2 py-1 font-medium">Cant</th>
+                              <th className="px-2 py-1 font-medium text-right">Precio</th>
+                              <th className="pr-3 pl-2 py-1 font-medium text-right">Subtotal</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {v.items.map((item) => (
+                              <tr key={item.id || item.producto_id} className="border-t border-gray-100">
+                                <td className="pl-8 pr-2 py-1">{item.producto?.nombre || "Producto"}</td>
+                                <td className="px-2 py-1">{item.cantidad}</td>
+                                <td className="px-2 py-1 text-right">₡{money(item.precio_unitario)}</td>
+                                <td className="pr-3 pl-2 py-1 text-right font-medium">₡{money(item.subtotal)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 ))}
                 {ventasHoy.length === 0 && (
                   <tr><td colSpan={4} className="py-4 text-center text-gray-400">Sin ventas hoy</td></tr>
