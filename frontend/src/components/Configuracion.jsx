@@ -9,6 +9,8 @@ export default function Configuracion() {
   const [nuevoUsuario, setNuevoUsuario] = useState("");
   const [nuevaCategoria, setNuevaCategoria] = useState("");
   const [editConfig, setEditConfig] = useState({});
+  const [impresorasDetectadas, setImpresorasDetectadas] = useState([]);
+  const [msgImpresora, setMsgImpresora] = useState("");
 
   const usuario = store.getUsuario();
 
@@ -131,6 +133,55 @@ export default function Configuracion() {
               <label className="block text-sm text-gray-500 mb-1">Correo remitente</label>
               <input value={editConfig.smtp_from || ""} onChange={(e) => setEditConfig({ ...editConfig, smtp_from: e.target.value })} onBlur={() => guardarConfig("smtp_from", editConfig.smtp_from)} placeholder="ventas@tutienda.com" className="w-full p-2 border rounded-lg" />
             </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow">
+          <h3 className="font-semibold mb-4">Impresora de factura</h3>
+          <p className="text-sm text-gray-500 mb-4">Configuración para imprimir tickets en impresora térmica USB (ESC/POS)</p>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm text-gray-500 mb-1">Vendor ID (VID)</label>
+              <div className="flex gap-2">
+                <input value={editConfig.printer_vendor_id || ""} onChange={(e) => setEditConfig({ ...editConfig, printer_vendor_id: e.target.value })} onBlur={() => guardarConfig("printer_vendor_id", editConfig.printer_vendor_id)} placeholder="ej. 0416" className="flex-1 p-2 border rounded-lg font-mono" />
+                <button
+                  onClick={async () => {
+                    const lista = await api.get("/config/detectar-impresoras");
+                    setImpresorasDetectadas(lista || []);
+                  }}
+                  className="px-3 py-2 border rounded-lg text-sm hover:bg-gray-50"
+                >
+                  Detectar
+                </button>
+              </div>
+              {impresorasDetectadas.length > 0 && (
+                <div className="mt-2 border rounded-lg max-h-40 overflow-y-auto">
+                  {impresorasDetectadas.map((d, i) => (
+                    <button key={i} onClick={() => { setEditConfig({ ...editConfig, printer_vendor_id: d.vid, printer_product_id: d.pid }); guardarConfig("printer_vendor_id", d.vid); guardarConfig("printer_product_id", d.pid); setImpresorasDetectadas([]); }} className="w-full text-left p-2 text-sm hover:bg-blue-50 border-b flex justify-between">
+                      <span className="font-mono">{d.vid}:{d.pid}</span>
+                      <span className="text-gray-500 truncate ml-2">{d.nombre}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm text-gray-500 mb-1">Product ID (PID)</label>
+              <input value={editConfig.printer_product_id || ""} onChange={(e) => setEditConfig({ ...editConfig, printer_product_id: e.target.value })} onBlur={() => guardarConfig("printer_product_id", editConfig.printer_product_id)} placeholder="ej. 5011" className="w-full p-2 border rounded-lg font-mono" />
+            </div>
+            <button
+              onClick={async () => {
+                setMsgImpresora("");
+                const res = await api.post("/config/imprimir-prueba");
+                setMsgImpresora(res.error || "Ticket de prueba enviado ✓");
+              }}
+              className="px-4 py-2 border rounded-lg text-sm hover:bg-gray-50"
+            >
+              Probar impresión
+            </button>
+            {msgImpresora && (
+              <p className={`text-sm ${msgImpresora.includes("✓") ? "text-green-600" : "text-red-600"}`}>{msgImpresora}</p>
+            )}
           </div>
         </div>
       </div>

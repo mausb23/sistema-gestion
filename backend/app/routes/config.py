@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.models.configuracion import Configuracion
 from app.services.tipo_cambio import obtener_tipo_cambio
+from app.services.impresora import detectar_impresoras, imprimir_prueba
 
 router = APIRouter(prefix="/api/config", tags=["config"])
 
@@ -23,6 +24,8 @@ VALORES_DEFECTO = {
     "smtp_user": "",
     "smtp_password": "",
     "smtp_from": "",
+    "printer_vendor_id": "",
+    "printer_product_id": "",
 }
 
 
@@ -65,3 +68,13 @@ def actualizar_tipo_cambio(db: Session = Depends(get_db)):
             c.valor = v
     db.commit()
     return {"ok": True, "compra": tc["compra"], "venta": tc["venta"]}
+
+
+@router.get("/detectar-impresoras")
+def listar_impresoras():
+    return detectar_impresoras()
+
+
+@router.post("/imprimir-prueba")
+def probar_impresora(db: Session = Depends(get_db)):
+    return imprimir_prueba(db)

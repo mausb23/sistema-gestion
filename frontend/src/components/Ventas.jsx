@@ -129,6 +129,7 @@ export default function Ventas() {
     setMetodoPago("efectivo");
     setEmailDestino("");
     setMensajeEnvio("");
+    api.post(`/ventas/${venta.id}/imprimir`).catch(() => {});
     cargarDatos();
     inputRef.current?.focus();
   }
@@ -568,7 +569,7 @@ export default function Ventas() {
           <div className="bg-white rounded-xl shadow overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-left">
-                <tr><th className="p-3">#</th><th className="p-3">Fecha</th><th className="p-3">Usuario</th><th className="p-3">Items</th><th className="p-3">Total</th><th className="p-3">Pago</th><th className="p-3">Estado</th></tr>
+                <tr><th className="p-3">#</th><th className="p-3">Fecha</th><th className="p-3">Usuario</th><th className="p-3">Items</th><th className="p-3">Total</th><th className="p-3">Pago</th><th className="p-3">Estado</th><th className="p-3"></th></tr>
               </thead>
               <tbody>
                 {ventas.map((v) => (
@@ -584,9 +585,12 @@ export default function Ventas() {
                       return mp === "efectivo_dolares" ? "Dólares" : mp === "efectivo" ? "Colones" : mp === "sinpe" ? "SINPE Móvil" : mp;
                     })()}</td>
                     <td className="p-3"><span className={`px-2 py-1 rounded-full text-xs ${v.estado === "completada" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{v.estado}</span></td>
+                    <td className="p-3">
+                      <button onClick={() => api.post(`/ventas/${v.id}/imprimir`).catch(() => {})} className="text-gray-400 hover:text-blue-600 text-sm" title="Reimprimir ticket">🖨</button>
+                    </td>
                   </tr>
                 ))}
-                {ventas.length === 0 && <tr><td colSpan={7} className="p-6 text-center text-gray-400">Sin ventas registradas</td></tr>}
+                {ventas.length === 0 && <tr><td colSpan={8} className="p-6 text-center text-gray-400">Sin ventas registradas</td></tr>}
               </tbody>
             </table>
           </div>

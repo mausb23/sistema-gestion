@@ -16,6 +16,7 @@ from app.models.venta import Venta, VentaItem
 from app.models.producto import Producto
 from app.models.inventario import MovimientoInventario
 from app.models.configuracion import Configuracion
+from app.services.impresora import imprimir as imprimir_ticket
 
 router = APIRouter(prefix="/api/ventas", tags=["ventas"])
 
@@ -157,6 +158,14 @@ def eliminar(venta_id: int, db: Session = Depends(get_db)):
     v.estado = "anulada"
     db.commit()
     return {"ok": True}
+
+
+@router.post("/{venta_id}/imprimir")
+def imprimir_venta(venta_id: int, db: Session = Depends(get_db)):
+    venta = db.query(Venta).get(venta_id)
+    if not venta:
+        return {"error": "Venta no encontrada"}
+    return imprimir_ticket(venta, db)
 
 
 @router.get("/exportar-excel")
