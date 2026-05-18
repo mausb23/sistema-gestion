@@ -29,6 +29,7 @@ class ItemInput(BaseModel):
 class PagoInput(BaseModel):
     metodo: str
     monto: float
+    moneda: str = "CRC"
 
 
 class VentaCreate(BaseModel):
@@ -92,6 +93,11 @@ def crear(data: VentaCreate, db: Session = Depends(get_db)):
     if data.pagos:
         pagos_detalle = json.dumps([p.model_dump() for p in data.pagos])
         metodos = "+".join(sorted(set(p.metodo for p in data.pagos)))
+        monedas = set(p.moneda for p in data.pagos)
+        if "CRC" in monedas and "USD" in monedas:
+            moneda = "CRC"
+        elif "USD" in monedas:
+            moneda = "USD"
         metodo_pago = metodos
 
     venta = Venta(

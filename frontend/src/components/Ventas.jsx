@@ -29,8 +29,6 @@ export default function Ventas() {
   const [mensajeEnvio, setMensajeEnvio] = useState("");
   const [resultadosBusqueda, setResultadosBusqueda] = useState([]);
   const debounceRef2 = useRef(null);
-  const [splitPago, setSplitPago] = useState(false);
-  const [pagos, setPagos] = useState([{ metodo: "efectivo", monto: "" }]);
 
   const usuario = store.getUsuario();
 
@@ -110,18 +108,19 @@ export default function Ventas() {
   async function registrarVenta() {
     if (!items.length || !usuario) return;
     const pagosData = splitPago
-      ? pagos.filter((p) => parseFloat(p.monto) > 0).map((p) => ({ metodo: p.metodo, monto: parseFloat(p.monto) }))
-      : [{ metodo: metodoPago, monto: total }];
+      ? pagos.filter((p) => parseFloat(p.monto) > 0).map((p) => ({ metodo: p.metodo, monto: parseFloat(p.monto), moneda: monedaDeMetodo(p.metodo) }))
+      : [{ metodo: metodoPago, monto: total, moneda: esUSD ? "USD" : "CRC" }];
+    const hayUSD = pagosData.some((p) => p.moneda === "USD");
+    const hayCRC = pagosData.some((p) => p.moneda === "CRC");
     const venta = await api.post("/ventas", {
       usuario_id: usuario.id,
       cliente_id: clienteId,
       items: items.map((i) => ({ producto_id: i.producto_id, cantidad: i.cantidad, precio_unitario: i.precio_unitario })),
       metodo_pago: splitPago ? pagosData[0]?.metodo || metodoPago : metodoPago,
       pagos: pagosData,
-      moneda: esUSD ? "USD" : "CRC",
+      moneda: hayUSD && hayCRC ? "CRC" : hayUSD ? "USD" : "CRC",
     });
-    const total = items.reduce((s, i) => s + i.subtotal, 0);
-    setVentaCompletada({ id: venta.id, total, moneda: esUSD ? "USD" : "CRC", items: [...items] });
+    setVentaCompletada({ id: venta.id, total, moneda: hayUSD && hayCRC ? "CRC" : hayUSD ? "USD" : "CRC", items: [...items] });
     setItems([]);
     setUltimoProducto(null);
     setEmailDestino("");
@@ -148,6 +147,28 @@ export default function Ventas() {
 
   const total = items.reduce((s, i) => s + i.subtotal, 0);
   const totalUSD = tipoCambio ? total / tipoCambio : 0;
+  const [splitPago, setSplitPago] = useState(false);
+  const [pagos, setPagos] = useState([{ metodo: "efectivo", monto: "" }]);
+
+  function monedaDeMetodo(metodo) {
+    return metodo === "efectivo_dolares" ? "USD" : "CRC";
+  }
+
+  function totalPagosCRC(pagosArr) {
+    return pagosArr.reduce((s, p) => {
+      const monto = parseFloat(p.monto) || 0;
+      if (p.metodo === "efectivo_dolares" && tipoCambio) {
+        return s + monto * tipoCambio;
+      }
+      return s + monto;
+    }, 0);
+  }
+
+  function esMetodoEfectivo(metodo) {
+    return metodo === "efectivo" || metodo === "efectivo_dolares";
+  }
+
+  const [montoRecibido, setMontoRecibido] = useState("");
 
   useEffect(() => {
     if (debounceRef2.current) clearTimeout(debounceRef2.current);
@@ -303,65 +324,135 @@ export default function Ventas() {
 
                 {!splitPago ? (
                   <>
-                    <select value={metodoPago} onChange={(e) => setMetodoPago(e.target.value)} className="w-full p-2 border rounded-lg mb-3">
+                    <select value={metodoPago} onChange={(e) => { setMetodoPago(e.target.value); setMontoRecibido(""); }} className="w-full p-2 border rounded-lg mb-2">
                       <option value="efectivo">Efectivo colones</option>
                       <option value="efectivo_dolares">Efectivo Dólares</option>
                       <option value="tarjeta">Tarjeta</option>
                       <option value="sinpe">SINPE Móvil</option>
                     </select>
+                    {esMetodoEfectivo(metodoPago) && (
+                      <div className="space-y-1 mb-3">
+                        <div className="flex gap-2 items-center">
+                          <span className="text-sm text-gray-500 w-16">{metodoPago === "efectivo_dolares" ? "Recibido $" : "Recibido ₡"}</span>
+                          <input
+                            type="number" step="0.01" min="0" placeholder="0"
+                            value={montoRecibido}
+                            onChange={(e) => setMontoRecibido(e.target.value)}
+                            className="flex-1 p-2 border rounded-lg text-sm"
+                            autoFocus={items.length > 0}
+                          />
+                        </div>
+                        {montoRecibido && parseFloat(montoRecibido) > 0 && (
+                          <div className="flex justify-between items-center px-2">
+                            <span className="text-sm text-gray-500">Vuelto</span>
+                            {metodoPago === "efectivo_dolares" && tipoCambio ? (
+                              <span className="text-lg font-bold text-emerald-600">
+                                ${money(Math.max(0, parseFloat(montoRecibido) - totalUSD))}
+                              </span>
+                            ) : (
+                              <span className="text-lg font-bold text-emerald-600">
+                                ₡{money(Math.max(0, parseFloat(montoRecibido) - total))}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <button onClick={registrarVenta} disabled={!items.length} className="w-full bg-green-600 text-white py-3 rounded-xl font-bold text-lg hover:bg-green-700 disabled:bg-gray-300 mb-2">
                       {esUSD && totalUSD > 0 ? `Cobrar $${money(totalUSD)}` : `Cobrar ₡${money(total)}`}
                     </button>
                   </>
                 ) : (
                   <div className="mb-3 space-y-2">
-                    <p className="text-sm font-semibold text-gray-600">Dividir pago:</p>
-                    {pagos.map((p, idx) => (
-                      <div key={idx} className="flex gap-2 items-center">
-                        <select
-                          value={p.metodo}
-                          onChange={(e) => {
-                            const nuevos = [...pagos];
-                            nuevos[idx] = { ...nuevos[idx], metodo: e.target.value };
-                            setPagos(nuevos);
-                          }}
-                          className="flex-1 p-2 border rounded-lg text-sm"
-                        >
-                          <option value="efectivo">Efectivo colones</option>
-                          <option value="efectivo_dolares">Efectivo Dólares</option>
-                          <option value="tarjeta">Tarjeta</option>
-                          <option value="sinpe">SINPE Móvil</option>
-                        </select>
-                        <input
-                          type="number" step="0.01" placeholder="Monto"
-                          value={p.monto}
-                          onChange={(e) => {
-                            const nuevos = [...pagos];
-                            nuevos[idx] = { ...nuevos[idx], monto: e.target.value };
-                            setPagos(nuevos);
-                          }}
-                          className="w-28 p-2 border rounded-lg text-sm"
-                        />
-                        {pagos.length > 1 && (
-                          <button onClick={() => setPagos(pagos.filter((_, i) => i !== idx))} className="text-red-500 text-sm font-bold px-2">✕</button>
+                    <p className="text-sm font-semibold text-gray-600">
+                      Dividir pago — Total: ₡{money(total)}
+                      {tipoCambio && <span className="font-normal text-gray-400 ml-2">(TC: ₡{money(tipoCambio)})</span>}
+                    </p>
+                    {pagos.map((p, idx) => {
+                      const esUSD = p.metodo === "efectivo_dolares";
+                      const esCash = esMetodoEfectivo(p.metodo);
+                      return (
+                      <div key={idx}>
+                        <div className="flex gap-2 items-center">
+                          <select
+                            value={p.metodo}
+                            onChange={(e) => {
+                              const nuevos = [...pagos];
+                              nuevos[idx] = { ...nuevos[idx], metodo: e.target.value, recibido: "" };
+                              setPagos(nuevos);
+                            }}
+                            className="flex-1 p-2 border rounded-lg text-sm"
+                          >
+                            <option value="efectivo">Efectivo colones</option>
+                            <option value="efectivo_dolares">Efectivo Dólares</option>
+                            <option value="tarjeta">Tarjeta</option>
+                            <option value="sinpe">SINPE Móvil</option>
+                          </select>
+                          <input
+                            type="number" step="0.01" placeholder={esUSD ? "Monto $" : "Monto ₡"}
+                            value={p.monto}
+                            onChange={(e) => {
+                              const nuevos = [...pagos];
+                              nuevos[idx] = { ...nuevos[idx], monto: e.target.value };
+                              setPagos(nuevos);
+                            }}
+                            className="w-24 p-2 border rounded-lg text-sm"
+                          />
+                          {pagos.length > 1 && (
+                            <button onClick={() => setPagos(pagos.filter((_, i) => i !== idx))} className="text-red-500 text-sm font-bold px-2">✕</button>
+                          )}
+                        </div>
+                        {esCash && (
+                          <div className="flex gap-2 items-center ml-4 mt-1">
+                            <span className="text-xs text-gray-400 w-12">{esUSD ? "Recib. $" : "Recib. ₡"}</span>
+                            <input
+                              type="number" step="0.01" min="0" placeholder="0"
+                              value={p.recibido || ""}
+                              onChange={(e) => {
+                                const nuevos = [...pagos];
+                                nuevos[idx] = { ...nuevos[idx], recibido: e.target.value };
+                                setPagos(nuevos);
+                              }}
+                              className="w-24 p-1.5 border rounded text-sm"
+                            />
+                            {p.recibido && parseFloat(p.recibido) > 0 && (
+                              <span className="text-xs font-bold text-emerald-600">
+                                Vuelto: {esUSD ? "$" : "₡"}{money(Math.max(0, parseFloat(p.recibido) - (parseFloat(p.monto) || 0)))}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
+                    {tipoCambio && (
+                      <p className="text-xs text-gray-400 text-right">
+                        Total CRC: ₡{money(totalPagosCRC(pagos))}
+                        {Math.abs(totalPagosCRC(pagos) - total) > 0.5 && (
+                          <span className="text-red-500 ml-1">(debe ser ₡{money(total)})</span>
+                        )}
+                      </p>
+                    )}
                     <div className="flex gap-2 pt-1">
                       <button
-                        onClick={() => setPagos([...pagos, { metodo: "efectivo", monto: "" }])}
+                        onClick={() => setPagos([...pagos, { metodo: "efectivo", monto: "", recibido: "" }])}
                         className="flex-1 border border-blue-300 text-blue-600 px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-blue-50"
                       >
                         + Agregar método
                       </button>
                       <button
                         onClick={() => {
-                          const suma = pagos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
-                          if (suma !== total) {
+                          const suma = totalPagosCRC(pagos);
+                          if (Math.abs(suma - total) > 0.5) {
                             const diff = total - suma;
                             const ultimo = pagos.length - 1;
                             const nuevos = [...pagos];
-                            nuevos[ultimo] = { ...nuevos[ultimo], monto: (parseFloat(nuevos[ultimo].monto) || 0) + diff > 0 ? ((parseFloat(nuevos[ultimo].monto) || 0) + diff).toFixed(2) : "0" };
+                            const ultimoMetodo = nuevos[ultimo].metodo;
+                            const enUSD = ultimoMetodo === "efectivo_dolares" && tipoCambio;
+                            const montoActual = parseFloat(nuevos[ultimo].monto) || 0;
+                            const ajuste = enUSD ? diff / tipoCambio : diff;
+                            const nuevoMonto = Math.max(0, montoActual + ajuste);
+                            nuevos[ultimo] = { ...nuevos[ultimo], monto: nuevoMonto.toFixed(2) };
                             setPagos(nuevos);
                           }
                         }}
@@ -370,8 +461,12 @@ export default function Ventas() {
                         Balancear
                       </button>
                     </div>
-                    <button onClick={registrarVenta} disabled={!items.length || pagos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0) !== total} className="w-full bg-green-600 text-white py-3 rounded-xl font-bold text-lg hover:bg-green-700 disabled:bg-gray-300">
-                      {esUSD && totalUSD > 0 ? `Cobrar $${money(totalUSD)}` : `Cobrar ₡${money(total)}`}
+                    <button
+                      onClick={registrarVenta}
+                      disabled={!items.length || Math.abs(totalPagosCRC(pagos) - total) > 0.5}
+                      className="w-full bg-green-600 text-white py-3 rounded-xl font-bold text-lg hover:bg-green-700 disabled:bg-gray-300"
+                    >
+                      Cobrar ₡{money(total)}
                     </button>
                   </div>
                 )}
@@ -379,7 +474,7 @@ export default function Ventas() {
                 {!splitPago && (
                   <button
                     onClick={() => {
-                      setPagos([{ metodo: "efectivo", monto: total.toFixed(2) }]);
+                      setPagos([{ metodo: "efectivo", monto: total.toFixed(2), recibido: "" }]);
                       setSplitPago(true);
                     }}
                     className="w-full mt-2 py-2 border-2 border-dashed border-blue-400 text-blue-600 rounded-xl text-sm font-semibold hover:bg-blue-50 hover:border-blue-500"
