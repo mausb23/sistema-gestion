@@ -351,21 +351,26 @@ export default function Ventas() {
                         </div>
                         {montoRecibido && parseFloat(montoRecibido) > 0 && (
                           <div className="flex justify-between items-center px-2">
-                            <span className="text-sm text-gray-500">Vuelto</span>
-                            {metodoPago === "efectivo_dolares" && tipoCambio ? (
-                              <span className="text-lg font-bold text-emerald-600">
-                                ${money(Math.max(0, parseFloat(montoRecibido) - totalUSD))}
-                              </span>
-                            ) : (
-                              <span className="text-lg font-bold text-emerald-600">
-                                ₡{money(Math.max(0, parseFloat(montoRecibido) - total))}
-                              </span>
-                            )}
+                            {(() => {
+                              const recibido = parseFloat(montoRecibido);
+                              const esUSD = metodoPago === "efectivo_dolares" && tipoCambio;
+                              const totalPago = esUSD ? totalUSD : total;
+                              const diff = recibido - totalPago;
+                              const falta = diff < 0;
+                              return (
+                                <>
+                                  <span className="text-sm text-gray-500">{falta ? "Faltan" : "Vuelto"}</span>
+                                  <span className={`text-lg font-bold ${falta ? "text-red-600" : "text-emerald-600"}`}>
+                                    {esUSD ? "$" : "₡"}{money(Math.abs(diff))}
+                                  </span>
+                                </>
+                              );
+                            })()}
                           </div>
                         )}
                       </div>
                     )}
-                    <button onClick={registrarVenta} disabled={!items.length} className="w-full bg-green-600 text-white py-3 rounded-xl font-bold text-lg hover:bg-green-700 disabled:bg-gray-300 mb-2">
+                    <button onClick={registrarVenta} disabled={!items.length || (esMetodoEfectivo(metodoPago) && montoRecibido && parseFloat(montoRecibido) > 0 && parseFloat(montoRecibido) < (esUSD ? totalUSD : total))} className="w-full bg-green-600 text-white py-3 rounded-xl font-bold text-lg hover:bg-green-700 disabled:bg-gray-300 mb-2">
                       {esUSD && totalUSD > 0 ? `Cobrar $${money(totalUSD)}` : `Cobrar ₡${money(total)}`}
                     </button>
                   </>
@@ -423,9 +428,17 @@ export default function Ventas() {
                               className="w-24 p-1.5 border rounded text-sm"
                             />
                             {p.recibido && parseFloat(p.recibido) > 0 && (
-                              <span className="text-xs font-bold text-emerald-600">
-                                Vuelto: {esUSD ? "$" : "₡"}{money(Math.max(0, parseFloat(p.recibido) - (parseFloat(p.monto) || 0)))}
-                              </span>
+                              (() => {
+                                const rec = parseFloat(p.recibido);
+                                const mont = parseFloat(p.monto) || 0;
+                                const diff = rec - mont;
+                                const falta = diff < 0;
+                                return (
+                                  <span className={"text-xs font-bold " + (falta ? "text-red-600" : "text-emerald-600")}>
+                                    {falta ? "Faltan " : "Vuelto: "}{esUSD ? "$" : "₡"}{money(Math.abs(diff))}
+                                  </span>
+                                );
+                              })()
                             )}
                           </div>
                         )}
@@ -483,7 +496,7 @@ export default function Ventas() {
                     </div>
                     <button
                       onClick={registrarVenta}
-                      disabled={!items.length}
+                      disabled={!items.length || pagos.some(p => esMetodoEfectivo(p.metodo) && p.recibido && parseFloat(p.recibido) > 0 && parseFloat(p.recibido) < (parseFloat(p.monto) || 0))}
                       className="w-full bg-green-600 text-white py-3 rounded-xl font-bold text-lg hover:bg-green-700 disabled:bg-gray-300"
                     >
                       Cobrar ₡{money(total)}
