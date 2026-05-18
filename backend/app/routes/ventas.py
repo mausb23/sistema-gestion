@@ -181,10 +181,14 @@ def exportar_excel(fecha_desde: Optional[str] = None, fecha_hasta: Optional[str]
             comunidad = p.artesano.comunidad if p and p.artesano else None
             comunidad_numero = f"{comunidad.codigo} - {comunidad.nombre}" if comunidad else ""
             metodo = v.metodo_pago
-            if metodo == "efectivo_dolares":
+            if "+" in metodo:
+                metodo = "+".join({"efectivo_dolares": "Dólares", "efectivo": "Colones", "sinpe": "SINPE", "tarjeta": "Tarjeta"}.get(m, m) for m in metodo.split("+"))
+            elif metodo == "efectivo_dolares":
                 metodo = "Dólares"
             elif metodo == "efectivo":
                 metodo = "Colones"
+            elif metodo == "sinpe":
+                metodo = "SINPE Móvil"
             dolares = round(item.subtotal / tc_compra, 2) if v.moneda == "USD" else ""
             rows.append([
                 v.fecha.strftime("%d/%m/%Y %H:%M"),

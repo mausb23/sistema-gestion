@@ -112,7 +112,11 @@ export default function Dashboard({ onNavigate }) {
                     <td className="py-2">{new Date(v.fecha).toLocaleTimeString()}</td>
                     <td className="py-2">{v.usuario?.nombre || "-"}</td>
                     <td className="py-2 font-medium">₡{money(v.total)}</td>
-                    <td className="py-2 capitalize">{v.metodo_pago === "efectivo_dolares" ? "Dólares" : v.metodo_pago === "efectivo" ? "Colones" : v.metodo_pago === "sinpe" ? "SINPE Móvil" : v.metodo_pago}</td>
+                    <td className="py-2 capitalize">{(() => {
+                      const mp = v.metodo_pago;
+                      if (mp.includes("+")) return mp.split("+").map(m => ({efectivo:"Colones",efectivo_dolares:"Dólares",sinpe:"SINPE",tarjeta:"Tarjeta"}[m]||m)).join("+");
+                      return mp === "efectivo_dolares" ? "Dólares" : mp === "efectivo" ? "Colones" : mp === "sinpe" ? "SINPE Móvil" : mp;
+                    })()}</td>
                   </tr>
                 ))}
                 {ventasHoy.length === 0 && (
