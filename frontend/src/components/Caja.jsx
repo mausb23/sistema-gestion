@@ -10,11 +10,11 @@ const CRC_DENOMS = [
   { label: "₡50", value: 50, tipo: "Moneda" },
   { label: "₡100", value: 100, tipo: "Moneda" },
   { label: "₡500", value: 500, tipo: "Moneda" },
-  { label: "₡1,000", value: 1000, tipo: "Billete" },
-  { label: "₡2,000", value: 2000, tipo: "Billete" },
-  { label: "₡5,000", value: 5000, tipo: "Billete" },
-  { label: "₡10,000", value: 10000, tipo: "Billete" },
-  { label: "₡20,000", value: 20000, tipo: "Billete" },
+  { label: "₡1.000", value: 1000, tipo: "Billete" },
+  { label: "₡2.000", value: 2000, tipo: "Billete" },
+  { label: "₡5.000", value: 5000, tipo: "Billete" },
+  { label: "₡10.000", value: 10000, tipo: "Billete" },
+  { label: "₡20.000", value: 20000, tipo: "Billete" },
 ];
 
 const USD_DENOMS = [
@@ -165,16 +165,16 @@ export default function Caja() {
     return (
       <div className="mb-4">
         <h4 className="font-semibold text-sm mb-2">{moneda}</h4>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {denoms.map((d) => {
             const key = `${prefix}_${d.value}`;
             return (
-              <div key={key} className="flex items-center gap-2 bg-white rounded-lg border px-3 py-2">
-                <span className="text-sm font-medium w-16">{d.label}</span>
-                <span className="text-xs text-gray-400 w-12">x</span>
+              <div key={key} className="flex items-center bg-white rounded-lg border px-3 py-2">
+                <span className="text-sm font-medium whitespace-nowrap">{d.label}</span>
+                <span className="flex-1 text-center text-xs text-gray-400">x</span>
                 <input
                   type="number" min="0"
-                  className="w-16 p-1 border rounded text-sm text-center"
+                  className="w-16 p-1 border rounded text-sm text-center flex-shrink-0"
                   value={conteo[key]}
                   onChange={(e) => setConteo({ ...conteo, [key]: e.target.value })}
                 />
